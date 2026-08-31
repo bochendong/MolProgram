@@ -34,6 +34,8 @@ LORA_TARGETS = (
     "up_proj",
     "down_proj",
 )
+DEFAULT_BATCH_SIZE = 1
+DEFAULT_GRADIENT_ACCUMULATION = 128
 
 
 class IndexedMumoDataset:
@@ -86,7 +88,24 @@ class IndexedMumoDataset:
             "input_ids": full,
             "attention_mask": [1] * len(full),
             "labels": labels,
+            "row_index": index,
         }
+
+
+class IndexedCompletionCollator:
+    """Preserve source row ids while padding the language-model inputs."""
+
+    def __init__(self, tokenizer):
+        self.completion_collator = common.CompletionCollator(tokenizer)
+
+    def __call__(self, features):
+        import torch
+
+        batch = self.completion_collator(features)
+        batch["_row_indices"] = torch.tensor(
+            [int(item["row_index"]) for item in features], dtype=torch.long
+        )
+        return batch
 
 
 def nonfinite_gradients(model) -> int:
@@ -105,8 +124,12 @@ def main() -> int:
     parser.add_argument("--base-model", required=True)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--max-length", type=int, default=448)
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--gradient-accumulation", type=int, default=32)
+    parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
+    parser.add_argument(
+        "--gradient-accumulation",
+        type=int,
+        default=DEFAULT_GRADIENT_ACCUMULATION,
+    )
     parser.add_argument("--epochs", type=float, default=1.0)
     parser.add_argument("--max-steps", type=int, default=-1)
     parser.add_argument("--learning-rate", type=float, default=2e-5)
@@ -209,16 +232,39 @@ def main() -> int:
     )
 
     class FiniteTrainer(transformers.Trainer):
+        guarded_microbatches = 0
+        current_row_indices: list[int] = []
+        current_microbatch_loss = float("nan")
+
         def compute_loss(
             self, model, inputs, return_outputs=False, num_items_in_batch=None
         ):
+            row_indices = inputs.pop("_row_indices")
+            self.current_row_indices = [int(value) for value in row_indices.tolist()]
             outputs = model(**inputs)
             loss = outputs.loss
             if loss is None or not torch.isfinite(loss.detach()).all():
                 raise FloatingPointError(
-                    f"non-finite microbatch loss at optimizer step {self.state.global_step}"
+                    "non-finite microbatch loss at optimizer step "
+                    f"{self.state.global_step}; rows={self.current_row_indices}"
                 )
+            self.current_microbatch_loss = float(loss.detach().float().item())
             return (loss, outputs) if return_outputs else loss
+
+        def training_step(self, model, inputs, num_items_in_batch=None):
+            loss = super().training_step(model, inputs, num_items_in_batch)
+            self.guarded_microbatches += 1
+            # Audit every individual backward pass in the first effective batch.
+            # Later updates retain the cheaper per-optimizer-step callback below.
+            if self.guarded_microbatches <= args.gradient_accumulation:
+                bad = nonfinite_gradients(model)
+                if bad:
+                    raise FloatingPointError(
+                        f"{bad} non-finite gradient values after microbatch "
+                        f"{self.guarded_microbatches}; rows={self.current_row_indices}; "
+                        f"loss={self.current_microbatch_loss:.8g}"
+                    )
+            return loss
 
     class FiniteCallback(transformers.TrainerCallback):
         def on_pre_optimizer_step(self, args, state, control, model=None, **kwargs):
@@ -241,7 +287,7 @@ def main() -> int:
         model=model,
         args=training_args,
         train_dataset=dataset,
-        data_collator=common.CompletionCollator(tokenizer),
+        data_collator=IndexedCompletionCollator(tokenizer),
         callbacks=[FiniteCallback()],
     )
     result = trainer.train()
@@ -252,7 +298,7 @@ def main() -> int:
     trainer.save_model(str(adapter))
     tokenizer.save_pretrained(adapter)
     summary = {
-        "protocol": "mumo_fresh_stable_lora_v1",
+        "protocol": "mumo_fresh_stable_lora_v2",
         "run_kind": args.run_kind,
         "base_model": args.base_model,
         "fresh_adapter": True,
@@ -271,6 +317,7 @@ def main() -> int:
         "lora_targets": list(LORA_TARGETS),
         "lm_head_adapted": False,
         "finite_guard_each_step": True,
+        "first_effective_batch_microgradient_guard": True,
         "adapter_nonfinite_parameters": nonfinite,
         "train_metrics": dict(result.metrics),
         "adapter": str(adapter),

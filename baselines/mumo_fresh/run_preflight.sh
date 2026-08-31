@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TRAIN_JSONL="${MUMO_TRAIN_JSONL:?Set MUMO_TRAIN_JSONL to the indexed release}"
 BASE="${MUMO_BASE_MODEL:?Set MUMO_BASE_MODEL to the local backbone path}"
 PY="${MUMO_PYTHON_BIN:-python}"
-OUT_ROOT="${MUMO_OUTPUT_ROOT:-$REPO_ROOT/outputs/baselines/mumo_fresh/seed_32002}"
+OUT_ROOT="${MUMO_OUTPUT_ROOT:-$REPO_ROOT/outputs/baselines/mumo_fresh/stable_v2_seed_32002}"
 
 module purge >/dev/null 2>&1 || true
 module load StdEnv/2023 python/3.11

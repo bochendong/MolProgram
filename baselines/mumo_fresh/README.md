@@ -17,9 +17,13 @@ The corrected baseline changes the numerical contract before rerunning:
 - excludes `lm_head` from LoRA targets and uses the same seven projection
   modules as the stable MolProgram fresh-LoRA comparisons;
 - reduces the learning rate from `1e-4` to `2e-5`;
-- uses physical batch 4 with accumulation 32, preserving effective batch 128;
-- checks every microbatch loss, every optimizer-step gradient, and every
-  optimizer-step trainable parameter for finite values;
+- uses physical batch 1 with accumulation 128, preserving effective batch 128;
+  this follows the previously validated fresh-LoRA path and avoids the
+  variable-length multi-example batches implicated by the first repaired
+  smoke test;
+- checks every microbatch loss, every backward pass in the first effective
+  batch, every optimizer-step gradient, and every optimizer-step trainable
+  parameter for finite values; the first-batch guard reports exact source rows;
 - disables NaN/Inf log filtering so numerical failures cannot appear as zero
   loss;
 - runs a fresh 50-step smoke test before the full one-epoch job is released.
@@ -38,6 +42,6 @@ export MUMO_BASE_MODEL=/path/to/Qwen2.5-VL-7B-Instruct
 bash baselines/mumo_fresh/submit.sh
 ```
 
-Outputs default to `outputs/baselines/mumo_fresh/seed_32002`. The full job is
+Outputs default to `outputs/baselines/mumo_fresh/stable_v2_seed_32002`. The full job is
 submitted with an `afterok` dependency on the smoke test, and a final CPU job
 independently verifies that every saved adapter tensor is finite.

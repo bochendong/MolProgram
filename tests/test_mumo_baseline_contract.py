@@ -39,3 +39,6 @@ def test_stability_contract_excludes_output_head():
         "up_proj",
         "down_proj",
     )
+    assert trainer.DEFAULT_BATCH_SIZE == 1
+    assert trainer.DEFAULT_GRADIENT_ACCUMULATION == 128
+    assert trainer.DEFAULT_BATCH_SIZE * trainer.DEFAULT_GRADIENT_ACCUMULATION == 128

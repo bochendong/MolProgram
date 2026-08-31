@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 : "${MUMO_BASE_MODEL:?Set MUMO_BASE_MODEL before submission}"
 ACCOUNT="${MUMO_ACCOUNT:-def-hup-ab}"
 GPU="${MUMO_GRES:-gpu:nvidia_h100_80gb_hbm3_3g.40gb:1}"
-OUT_ROOT="${MUMO_OUTPUT_ROOT:-$REPO_ROOT/outputs/baselines/mumo_fresh/seed_32002}"
+OUT_ROOT="${MUMO_OUTPUT_ROOT:-$REPO_ROOT/outputs/baselines/mumo_fresh/stable_v2_seed_32002}"
 LOG_DIR="$REPO_ROOT/logs/baselines/mumo_fresh"
 mkdir -p "$LOG_DIR"
 common="MUMO_BASELINE_DIR=$SCRIPT_DIR,MUMO_OUTPUT_ROOT=$OUT_ROOT"
@@ -22,7 +22,7 @@ smoke=$(sbatch --parsable --account="$ACCOUNT" --job-name=mumo-smoke \
   --output="$LOG_DIR/smoke-%j.log" \
   --export="ALL,$common,MUMO_RUN_KIND=smoke" "$SCRIPT_DIR/run_train.sh")
 full=$(sbatch --parsable --account="$ACCOUNT" --job-name=mumo-full \
-  --time=12:00:00 --cpus-per-task=6 --mem=40G --gres="$GPU" \
+  --time=14:00:00 --cpus-per-task=6 --mem=40G --gres="$GPU" \
   --dependency="afterok:$smoke" --kill-on-invalid-dep=yes \
   --output="$LOG_DIR/full-%j.log" \
   --export="ALL,$common,MUMO_RUN_KIND=full" "$SCRIPT_DIR/run_train.sh")

@@ -8,7 +8,7 @@ TRAIN_JSONL="${MUMO_TRAIN_JSONL:?Set MUMO_TRAIN_JSONL to the indexed release}"
 BASE="${MUMO_BASE_MODEL:?Set MUMO_BASE_MODEL to the local backbone path}"
 PY="${MUMO_PYTHON_BIN:-python}"
 DEP="${MUMO_DEP_OVERLAY:-$REPO_ROOT/src}"
-OUT_ROOT="${MUMO_OUTPUT_ROOT:-$REPO_ROOT/outputs/baselines/mumo_fresh/seed_32002}"
+OUT_ROOT="${MUMO_OUTPUT_ROOT:-$REPO_ROOT/outputs/baselines/mumo_fresh/stable_v2_seed_32002}"
 
 module purge >/dev/null 2>&1 || true
 module load StdEnv/2023 python/3.11 cuda/12.6
@@ -27,6 +27,6 @@ fi
 "$PY" "$SCRIPT_DIR/train.py" \
   --train-jsonl "$TRAIN_JSONL" --base-model "$BASE" \
   --output-dir "$OUT_ROOT/$RUN_KIND" --run-kind "$RUN_KIND" \
-  --batch-size 4 --gradient-accumulation 32 --epochs 1 \
+  --batch-size 1 --gradient-accumulation 128 --epochs 1 \
   --max-steps "$MAX_STEPS" --learning-rate 2e-5 \
   --save-steps "$SAVE_STEPS" --seed 32002
