@@ -22,7 +22,7 @@ smoke=$(sbatch --parsable --account="$ACCOUNT" --job-name=mumo-smoke \
   --output="$LOG_DIR/smoke-%j.log" \
   --export="ALL,$common,MUMO_RUN_KIND=smoke" "$SCRIPT_DIR/run_train.sh")
 full=$(sbatch --parsable --account="$ACCOUNT" --job-name=mumo-full \
-  --time=14:00:00 --cpus-per-task=6 --mem=40G --gres="$GPU" \
+  --time=16:00:00 --cpus-per-task=6 --mem=40G --gres="$GPU" \
   --dependency="afterok:$smoke" --kill-on-invalid-dep=yes \
   --output="$LOG_DIR/full-%j.log" \
   --export="ALL,$common,MUMO_RUN_KIND=full" "$SCRIPT_DIR/run_train.sh")
