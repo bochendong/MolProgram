@@ -82,7 +82,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--base-model", required=True)
     parser.add_argument("--adapter-dir", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--arm", choices=("joint", "denovo", "edit"), required=True)
+    parser.add_argument(
+        "--arm",
+        required=True,
+        help="Result label, for example joint, denovo, edit, or an ablation arm.",
+    )
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--seed", type=int, default=33051)
     parser.add_argument(

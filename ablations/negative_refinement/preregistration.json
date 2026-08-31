@@ -1,0 +1,73 @@
+{
+  "protocol": "molprogram_negative_refinement_matched_v1",
+  "status": "frozen before matched-control submission",
+  "question": "Do semantic negatives improve Raw@1 beyond positive-only continuation, and does fixed syntax corruption add independent value?",
+  "initialization": "same frozen positive-SFT adapter",
+  "data": {
+    "unique_requests": 24000,
+    "logical_pairs": 72688,
+    "de_novo_requests": 12000,
+    "editing_requests": 12000,
+    "same_pair_order_all_arms": true
+  },
+  "arms": {
+    "positive_only": {
+      "active_negative_types": [],
+      "rejected_forwards_retained": true
+    },
+    "semantic_only": {
+      "active_negative_types": [
+        "source_copy",
+        "condition_mismatch",
+        "opposite_program_target",
+        "partial_program_target"
+      ],
+      "invalid_corruption_weight": 0.0
+    },
+    "semantic_plus_syntax": {
+      "active_negative_types": [
+        "source_copy",
+        "condition_mismatch",
+        "opposite_program_target",
+        "partial_program_target",
+        "invalid_corruption"
+      ],
+      "reuse_frozen_existing_adapter": true
+    }
+  },
+  "matching": {
+    "same_input_adapter": true,
+    "same_logical_pairs": true,
+    "same_positive_completion_weight": true,
+    "same_optimizer_steps": true,
+    "same_rejected_forward_compute": true,
+    "epochs": 0.25,
+    "learning_rate": 0.00001,
+    "gradient_accumulation": 16,
+    "seed": 2323
+  },
+  "evaluation": {
+    "de_novo": "120 target-blind Raw@1 requests, 20 per 2p through 7p bucket",
+    "editing": "500 target-blind Raw@1 requests, 50 per registered task",
+    "sampling_seed": 33151,
+    "property_reranking": false,
+    "primary": [
+      "de_novo strict Raw@1 macro",
+      "editing strict Raw@1 macro at source similarity 0.65"
+    ],
+    "diagnostics": [
+      "validity",
+      "property-only strict success",
+      "editing relaxed success",
+      "editing copy rate",
+      "editing source similarity"
+    ]
+  },
+  "contrasts": {
+    "semantic_effect": "semantic_only minus positive_only",
+    "all_negative_effect": "semantic_plus_syntax minus positive_only",
+    "syntax_increment": "semantic_plus_syntax minus semantic_only"
+  },
+  "syntax_claim_rule": "Do not claim syntax corruption is useful if either primary metric drops by more than 1 percentage point; require at least one strict-success or validity metric to improve by at least 1 percentage point.",
+  "reporting": "Report all three arms and both task modes regardless of outcome."
+}

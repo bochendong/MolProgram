@@ -18,6 +18,10 @@ def load_module(name: str, path: Path):
 
 prepare = load_module("ablation_prepare", ABLATION / "prepare_data.py")
 collect = load_module("ablation_collect", ABLATION / "collect.py")
+negative = load_module(
+    "negative_refinement",
+    ROOT / "ablations" / "negative_refinement" / "train_refinement.py",
+)
 
 
 def row(mode: str, identity: str, count: int = 2, task_key: str = ""):
@@ -74,3 +78,16 @@ def test_collector_reports_transfer_and_parameter_efficiency():
     result = collect.summarize(evals, trains)
     assert result["decision"] == "positive_transfer"
     assert result["efficiency"]["joint_over_two_specialists_parameter_ratio"] == 0.5
+
+
+def test_negative_refinement_arms_change_only_registered_hinge_weights():
+    assert negative.active_weight("positive_only", "source_copy", 0.1) == 0.0
+    assert negative.active_weight("positive_only", "invalid_corruption", 0.2) == 0.0
+    assert negative.active_weight("semantic_only", "source_copy", 0.1) == 0.1
+    assert negative.active_weight("semantic_only", "invalid_corruption", 0.2) == 0.0
+    assert (
+        negative.active_weight(
+            "semantic_plus_syntax", "invalid_corruption", 0.2
+        )
+        == 0.2
+    )

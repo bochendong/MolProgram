@@ -50,3 +50,21 @@ The existing positive-SFT checkpoint may be used for a zero-cost diagnostic,
 but it is not the final control because the multi-negative arm has received
 additional updates. The paper-facing comparison must use the matched
 positive-only continuation described above.
+
+## Run on Slurm
+
+The runner reuses the frozen full-data contrastive arm and trains only the two
+missing matched controls. All three arms are then evaluated on the same 120
+de novo and 500 editing Raw@1 requests.
+
+```bash
+export NEGATIVE_SOURCE_ROOT=/path/to/frozen/refinement-release
+export NEGATIVE_GATE_ROOT=/path/to/frozen/raw1-gates
+export NEGATIVE_BASE_MODEL=/path/to/Qwen2.5-VL-7B-Instruct
+export NEGATIVE_ASSAY_ORACLE_DIR=/path/to/frozen/assay-models
+bash ablations/negative_refinement/submit.sh
+```
+
+The three arms use the same logical pair file. Inactive negative losses are set
+to zero but their rejected forward passes are retained, making optimizer steps,
+row order, positive-completion weights, and training compute directly matched.
