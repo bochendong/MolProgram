@@ -16,42 +16,32 @@ SEED="${SEED:-33101}"
 PROTOCOL="shared_property_transfer_v1"
 mkdir -p "$WORK_DIR" "$LOG_DIR"
 
+common="REPO_ROOT=$REPO_ROOT,MODEL=$MODEL,RELEASE_ROOT=$RELEASE_ROOT,BASELINE_ROOT=$BASELINE_ROOT,WORK_DIR=$WORK_DIR,SEED=$SEED,PROTOCOL=$PROTOCOL"
+for optional in PYTHON_BIN DEP_OVERLAY HF_CACHE; do
+  if [[ -n "${!optional:-}" ]]; then
+    common+=",$optional=${!optional}"
+  fi
+done
+
 prepare=$(sbatch --parsable --account="$ACCOUNT" --job-name=spt-data \
   --time=00:30:00 --cpus-per-task=2 --mem=16G \
   --output="$LOG_DIR/prepare-%j.log" \
-  --wrap="python3 '$SCRIPT_DIR/prepare_data.py' \
-    --baseline-data-dir '$BASELINE_ROOT/data' \
-    --train-source '$RELEASE_ROOT/de_novo' \
-    --output-dir '$WORK_DIR/data' --replay-total 10000 \
-    --seed '$SEED' --protocol '$PROTOCOL'")
+  --export="ALL,$common" "$SCRIPT_DIR/run_worker.sh" prepare)
 
 train=$(sbatch --parsable --account="$ACCOUNT" --job-name=spt-train \
   --time=04:00:00 --cpus-per-task=4 --mem=40G --gres="$GPU" \
   --dependency="afterok:$prepare" --output="$LOG_DIR/train-%j.log" \
-  --wrap="python3 '$REPO_ROOT/ablations/joint_vs_specialists/train_arm.py' \
-    --train-jsonl '$WORK_DIR/data/train.shared_property_joint.jsonl' \
-    --output-dir '$WORK_DIR/model' --base-model '$MODEL' --arm joint \
-    --epochs 1.0 --gradient-accumulation 32 --learning-rate 0.00008 \
-    --seed '$SEED' --protocol '$PROTOCOL'")
+  --export="ALL,$common" "$SCRIPT_DIR/run_worker.sh" train)
 
 evaluate=$(sbatch --parsable --account="$ACCOUNT" --job-name=spt-eval \
   --time=01:00:00 --cpus-per-task=4 --mem=40G --gres="$GPU" \
   --dependency="afterok:$train" --output="$LOG_DIR/eval-%j.log" \
-  --wrap="python3 '$REPO_ROOT/scripts/evaluate_raw1.py' \
-    --denovo-gate '$WORK_DIR/data/gate.denovo.jsonl' \
-    --edit-gate '$WORK_DIR/data/gate.edit.jsonl' \
-    --base-model '$MODEL' --adapter-dir '$WORK_DIR/model/adapter' \
-    --arm shared_property_joint --output-dir '$WORK_DIR/eval' \
-    --seed '$((SEED + 50))' --protocol '$PROTOCOL'")
+  --export="ALL,$common" "$SCRIPT_DIR/run_worker.sh" evaluate)
 
 collect=$(sbatch --parsable --account="$ACCOUNT" --job-name=spt-collect \
   --time=00:10:00 --cpus-per-task=2 --mem=8G \
   --dependency="afterok:$evaluate" --output="$LOG_DIR/collect-%j.log" \
-  --wrap="python3 '$SCRIPT_DIR/collect.py' \
-    --candidate-summary '$WORK_DIR/eval/summary.json' \
-    --joint-summary '$BASELINE_ROOT/eval/joint/summary.json' \
-    --edit-summary '$BASELINE_ROOT/eval/edit/summary.json' \
-    --output-dir '$WORK_DIR/result'")
+  --export="ALL,$common" "$SCRIPT_DIR/run_worker.sh" collect)
 
 printf 'prepare=%s train=%s evaluate=%s collect=%s output=%s\n' \
   "$prepare" "$train" "$evaluate" "$collect" "$WORK_DIR"

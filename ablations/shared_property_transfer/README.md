@@ -29,5 +29,8 @@ easy to interpret.
 export MODEL=/path/to/Qwen2.5-VL-7B-Instruct
 export RELEASE_ROOT=/path/to/molprogram-release
 export BASELINE_ROOT=/path/to/matched-10k-baseline
+# Optional on clusters with a separate dependency overlay:
+# export PYTHON_BIN=/path/to/python
+# export DEP_OVERLAY=/path/to/python-packages
 bash ablations/shared_property_transfer/submit_slurm.sh
 ```
