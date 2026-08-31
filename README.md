@@ -52,6 +52,8 @@ scripts/
 ablations/
   joint_vs_specialists/    matched shared-policy comparison
   negative_refinement/     positive-only versus structured negatives
+baselines/
+  mumo_fresh/              fresh editing-only LoRA on MuMOInstruct
 recipes/                   reproducible command-line entrypoints
 tests/                     protocol and reward contract tests
 ```
