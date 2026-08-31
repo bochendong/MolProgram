@@ -11,8 +11,10 @@ from typing import Sequence
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+REPO_ROOT = SCRIPT_DIR.parents[1]
+PUBLIC_SCRIPTS = REPO_ROOT / "scripts"
+if str(PUBLIC_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(PUBLIC_SCRIPTS))
 import train_sft as common  # noqa: E402
 
 

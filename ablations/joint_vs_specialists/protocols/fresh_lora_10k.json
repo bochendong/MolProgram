@@ -1,0 +1,15 @@
+{
+  "protocol": "fresh_lora_joint_vs_specialists_10k_v1",
+  "question": "At 10k examples per task, does one joint policy retain specialist-level Raw@1 performance while using one adapter?",
+  "initialization": "fresh rank-16 LoRA from the same unadapted backbone",
+  "examples_per_task": 10000,
+  "arms": ["joint", "denovo", "edit"],
+  "training": {"epochs": 1.0, "learning_rate": 0.00008, "gradient_accumulation": 32, "seed": 33101},
+  "evaluation": {
+    "de_novo_requests_per_arity": 20,
+    "editing_requests_per_task": 50,
+    "sampling_seed": 33151,
+    "property_reranking": false
+  },
+  "scope": "single-seed confirmation"
+}

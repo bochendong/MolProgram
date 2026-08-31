@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+
 : "${MODEL:?Set MODEL to the local or Hugging Face base-model path}"
 SOURCE="${SOURCE:-data/molprogram}"
 PROMPTS="${PROMPTS:-data/eval/denovo.jsonl}"
@@ -8,7 +12,7 @@ EDIT_PROMPTS="${EDIT_PROMPTS:-data/eval/edit.jsonl}"
 WORK_DIR="${WORK_DIR:-outputs/joint-vs-specialists}"
 TRAIN_PER_TASK="${TRAIN_PER_TASK:-10000}"
 
-python scripts/prepare_joint_specialist_data.py \
+python ablations/joint_vs_specialists/prepare_data.py \
   --train-source "$SOURCE" \
   --denovo-prompts "$PROMPTS" \
   --edit-prompts "$EDIT_PROMPTS" \
@@ -17,7 +21,7 @@ python scripts/prepare_joint_specialist_data.py \
   --edit-train-total "$TRAIN_PER_TASK"
 
 for arm in joint denovo edit; do
-  python scripts/train_joint_specialist.py \
+  python ablations/joint_vs_specialists/train_arm.py \
     --train-jsonl "$WORK_DIR/data/train.$arm.jsonl" \
     --base-model "$MODEL" \
     --arm "$arm" \
@@ -31,3 +35,6 @@ for arm in joint denovo edit; do
     --arm "$arm" \
     --output-dir "$WORK_DIR/$arm/eval"
 done
+
+python ablations/joint_vs_specialists/collect.py \
+  --output-root "$WORK_DIR"

@@ -1,0 +1,19 @@
+{
+  "protocol": "fresh_lora_joint_vs_specialists_scale_sweep_v1",
+  "question": "At what data scale does one joint adapter show positive transfer relative to two fresh specialists?",
+  "examples_per_task": [3000, 10000, 30000, 100000],
+  "nested_subsets": true,
+  "arms": ["joint", "denovo", "edit"],
+  "training": {"epochs": 1.0, "learning_rate": 0.00008, "gradient_accumulation": 32, "seed": 33101},
+  "evaluation": {
+    "de_novo_requests_per_arity": 20,
+    "editing_requests_per_task": 50,
+    "sampling_seed": 33151,
+    "property_reranking": false
+  },
+  "decision_rule": {
+    "noninferiority_margin_pp": 2.0,
+    "positive_transfer_threshold_pp": 2.0
+  },
+  "reporting": "report every completed scale, including negative and null results"
+}

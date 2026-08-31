@@ -1,0 +1,23 @@
+{
+  "protocol": "shared_initialization_full_v1",
+  "question": "Does joint large-scale continuation match two task-specific continuations from the same aligned policy?",
+  "initialization": "same aligned shared-policy adapter",
+  "arms": {
+    "joint": {"de_novo_rows": 488490, "editing_rows": 569905, "adapters": 1},
+    "denovo": {"de_novo_rows": 488490, "editing_rows": 0, "adapters": 1},
+    "edit": {"de_novo_rows": 0, "editing_rows": 569905, "adapters": 1}
+  },
+  "training": {
+    "same_rows_per_task": true,
+    "same_row_order": true,
+    "epochs": 1.0,
+    "learning_rate": 0.00001,
+    "seed": 24003,
+    "checkpoint_selection": "final adapter only"
+  },
+  "evaluation": {
+    "de_novo": "frozen 2p through 7p Best-of-40 protocol",
+    "editing": "frozen ten-task sampled-once Raw@1 protocol"
+  },
+  "interpretation_boundary": "shared-initialization continuation, not fresh independent specialists"
+}

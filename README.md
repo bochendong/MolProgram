@@ -48,9 +48,10 @@ scripts/
   train_sft.py             standard LoRA supervised fine-tuning
   train_indexed_sft.py     memory-bounded full-corpus continuation
   train_rl.py              group-relative online RL with SFT anchoring
-  prepare_joint_specialist_data.py
-  train_joint_specialist.py
   evaluate_raw1.py         matched target-blind Raw@1 evaluation
+ablations/
+  joint_vs_specialists/    matched shared-policy comparison
+  negative_refinement/     positive-only versus structured negatives
 recipes/                   reproducible command-line entrypoints
 tests/                     protocol and reward contract tests
 ```
@@ -134,12 +135,13 @@ adapter; the separate system has one construction adapter and one editing
 adapter.
 
 ```bash
-bash recipes/run_joint_vs_specialists.sh
+bash ablations/joint_vs_specialists/run.sh
 ```
 
 This comparison is the primary test of positive transfer and parameter
 efficiency from sharing a policy. See [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md)
-for the evaluation contract.
+for the evaluation contract and [ablations/](ablations/) for the complete
+ablation index and historical protocols.
 
 ## Data
 

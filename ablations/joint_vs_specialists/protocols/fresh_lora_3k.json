@@ -1,0 +1,15 @@
+{
+  "protocol": "fresh_lora_joint_vs_specialists_3k_v1",
+  "question": "Does a single fresh joint adapter show positive transfer or parameter efficiency relative to two fresh specialists?",
+  "initialization": "fresh rank-16 LoRA from the same unadapted backbone",
+  "examples_per_task": 3000,
+  "arms": ["joint", "denovo", "edit"],
+  "training": {"epochs": 1.0, "learning_rate": 0.00008, "gradient_accumulation": 32, "seed": 33001},
+  "evaluation": {
+    "de_novo_requests_per_arity": 20,
+    "editing_requests_per_task": 20,
+    "sampling_seed": 33051,
+    "property_reranking": false
+  },
+  "scope": "single-seed screening pilot"
+}
