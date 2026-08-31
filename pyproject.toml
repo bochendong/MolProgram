@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "molprogram"
+version = "0.1.0"
+description = "Unified language-model policy for molecular construction and editing"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "rdkit>=2024.3",
+]
+
+[project.optional-dependencies]
+train = [
+  "accelerate>=1.2",
+  "peft>=0.14",
+  "torch>=2.4",
+  "transformers>=4.47",
+]
+oracle = ["PyTDC>=1.1"]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
