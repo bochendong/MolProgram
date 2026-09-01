@@ -1,0 +1,38 @@
+{
+  "protocol": "fresh_balanced_molprogram_v1",
+  "status": "frozen before accelerator training",
+  "initialization": {
+    "input_adapter": null,
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  },
+  "training": {
+    "sampler": "deterministic equal round-robin over six de novo and seven editing arity buckets",
+    "rows_per_bucket": 81415,
+    "effective_examples": 1058395,
+    "optimizer_steps": 16283,
+    "physical_batch_size": 5,
+    "gradient_accumulation": 13,
+    "effective_batch_size": 65,
+    "learning_rate": 0.00008,
+    "warmup_steps": 100,
+    "seed": 36001
+  },
+  "milestones": [
+    {"step": 1539, "effective_examples": 100035, "de_novo_examples": 46170, "editing_examples": 53865},
+    {"step": 3077, "effective_examples": 200005, "de_novo_examples": 92310, "editing_examples": 107695},
+    {"step": 7693, "effective_examples": 500045, "de_novo_examples": 230790, "editing_examples": 269255},
+    {"step": 16283, "effective_examples": 1058395, "de_novo_examples": 488490, "editing_examples": 569905}
+  ],
+  "ablations": {
+    "exposure": "evaluate every preserved exposure endpoint",
+    "task_alignment": "compare the final fresh adapter before and after the frozen 11520-row task-aligned refresh"
+  },
+  "evaluation": {
+    "sampling": "target-blind Raw@1 without property reranking",
+    "de_novo": "440 matched conditions spanning 2p through 7p",
+    "editing": "500 frozen sources for each of ten tasks"
+  }
+}

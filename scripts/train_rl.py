@@ -20,7 +20,9 @@ if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
 from molprogram import protocol  # noqa: E402
+from molprogram.rewards import hard_boundary_reward  # noqa: E402
 from molprogram.scoring import score_response  # noqa: E402
+from molprogram.support_audit import validate_rl_authorization  # noqa: E402
 
 
 TARGET_EDIT_TASKS = frozenset(protocol.TABLE1_TASK_KEYS.values())
@@ -117,9 +119,17 @@ def scorer_row(payload: Mapping[str, object], mode: str) -> dict[str, str]:
     return result
 
 
-def reward_response(row: Mapping[str, object], raw: str) -> tuple[float, dict[str, object]]:
+def reward_response(
+    row: Mapping[str, object], raw: str, editing_reward_mode: str = "hard_boundary"
+) -> tuple[float, dict[str, object]]:
     """Score only prompt-visible conditions and source; never read a target molecule."""
-    return score_response(row, raw)
+    soft_reward, details = score_response(row, raw)
+    if str(row.get("task_mode", "")) == "edit":
+        if editing_reward_mode == "hard_boundary":
+            return hard_boundary_reward({}, details, "edit"), details
+        if editing_reward_mode != "soft":
+            raise ValueError(f"unsupported editing reward mode: {editing_reward_mode}")
+    return soft_reward, details
 
 
 def group_advantages(rewards: Sequence[float], clip: float = 3.0) -> list[float]:
@@ -222,6 +232,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--base-model", required=True)
     parser.add_argument("--input-adapter", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--editing-support-report", required=True, type=Path)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--group-size", type=int, default=4)
     parser.add_argument("--max-new-tokens", type=int, default=128)
@@ -230,10 +241,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--learning-rate", type=float, default=5e-7)
     parser.add_argument("--sft-anchor-weight", type=float, default=1.0)
     parser.add_argument("--initial-adapter-weight", type=float, default=0.05)
+    parser.add_argument(
+        "--editing-reward-mode",
+        choices=("hard_boundary", "soft"),
+        default="hard_boundary",
+    )
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--checkpoint-every", type=int, default=13)
     parser.add_argument("--seed", type=int, default=2525)
     args = parser.parse_args(argv)
+
+    support_report_bytes = args.editing_support_report.read_bytes()
+    support_report = json.loads(support_report_bytes)
+    support_decision = validate_rl_authorization(support_report)
+    support_report_sha256 = hashlib.sha256(support_report_bytes).hexdigest()
 
     import peft
     import torch
@@ -311,7 +332,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             model, tokenizer, prompt_messages, args.group_size, args.max_new_tokens,
             args.temperature, args.top_p, args.seed * 1000 + index,
         )
-        scored = [reward_response(row, candidate) for candidate in candidates]
+        scored = [
+            reward_response(row, candidate, args.editing_reward_mode)
+            for candidate in candidates
+        ]
         rewards = [item[0] for item in scored]
         details = [item[1] for item in scored]
         advantages = group_advantages(rewards)
@@ -344,6 +368,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             "valid_fraction": sum(bool(item["valid"]) for item in details) / len(details),
             "property_strict_fraction": sum(bool(item["property_strict"]) for item in details) / len(details),
             "strict_fraction": sum(bool(item["strict"]) for item in details) / len(details),
+            "source_feasible_fraction": sum(
+                bool(item["valid"])
+                and not bool(item["copy"])
+                and float(item.get("source_similarity") or 0.0) >= 0.65
+                for item in details
+            ) / len(details) if mode == "edit" else None,
             "relaxed_fraction": sum(bool(item["relaxed"]) for item in details) / len(details),
             "policy_loss": policy_loss_value,
             "sft_anchor_loss": float(anchor.detach()),
@@ -380,6 +410,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "prompts": len(selected),
         "bucket_counts": dict(sorted(bucket_counts.items())),
         "group_size": args.group_size,
+        "editing_reward_mode": args.editing_reward_mode,
+        "editing_support_report": str(args.editing_support_report),
+        "editing_support_report_sha256": support_report_sha256,
+        "editing_support_decision": support_decision,
         "learning_rate": args.learning_rate,
         "sft_anchor_weight": args.sft_anchor_weight,
         "initial_adapter_weight": args.initial_adapter_weight,

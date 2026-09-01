@@ -16,7 +16,7 @@
     "checkpoint_selection": "final adapter only"
   },
   "evaluation": {
-    "de_novo": "frozen 2p through 7p Best-of-40 protocol",
+    "de_novo": "frozen 2p through 7p target-blind Raw@1 protocol without property reranking",
     "editing": "frozen ten-task sampled-once Raw@1 protocol"
   },
   "interpretation_boundary": "shared-initialization continuation, not fresh independent specialists"

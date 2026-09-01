@@ -31,6 +31,16 @@ tasks alone can hide negative transfer.
 
 ## Reinforcement learning
 
+Before editing RL, run `scripts/audit_editing_reward_support.py` on training
+prompts excluded from every evaluation gate. The audit reports candidate-level
+source feasibility, strict Any@K, mixed-strict groups, hard-reward variance,
+reward-ranking accuracy, and task coverage. Its raw group file is append-only
+so an interrupted oracle-heavy audit can resume without resampling completed
+prompts. A low-support decision blocks online editing RL and motivates
+structured-action data collection or verified-success distillation instead.
+The frozen sampling and decision contract is recorded in
+`audits/editing_reward_support/preregistration.json`.
+
 `scripts/train_rl.py` samples groups from the current policy, computes rewards
 from prompt-visible conditions and the optional source, and applies
 group-relative policy gradients. An SFT loss anchors the chosen completion and

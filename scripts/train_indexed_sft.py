@@ -10,7 +10,6 @@ import heapq
 import json
 import math
 import os
-import struct
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -190,7 +189,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--release-root", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--base-model", required=True)
-    parser.add_argument("--input-adapter", required=True, type=Path)
+    initialization = parser.add_mutually_exclusive_group(required=True)
+    initialization.add_argument("--input-adapter", type=Path)
+    initialization.add_argument("--fresh-lora", action="store_true")
+    parser.add_argument("--lora-r", type=int, default=16)
+    parser.add_argument("--lora-alpha", type=int, default=32)
+    parser.add_argument("--lora-dropout", type=float, default=0.05)
     parser.add_argument("--max-length", type=int, default=448)
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--num-train-epochs", type=float, default=1.0)
@@ -199,6 +203,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--learning-rate", type=float, default=1e-5)
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--save-steps", type=int, default=500)
+    parser.add_argument(
+        "--milestone-step", action="append", type=int, default=[],
+        help="Optimizer step whose adapter must be preserved outside rotating checkpoints.",
+    )
     parser.add_argument("--logging-steps", type=int, default=10)
     parser.add_argument("--seed", type=int, default=24003)
     parser.add_argument(
@@ -216,6 +224,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("--max-steps must be positive when provided")
     if args.num_train_epochs <= 0:
         raise SystemExit("--num-train-epochs must be positive")
+    if args.lora_r < 1 or args.lora_alpha < 1:
+        raise SystemExit("LoRA rank and alpha must be positive")
+    if not 0.0 <= args.lora_dropout < 1.0:
+        raise SystemExit("--lora-dropout must be in [0, 1)")
+    milestone_steps = sorted(set(args.milestone_step))
+    if any(step < 1 for step in milestone_steps):
+        raise SystemExit("--milestone-step values must be positive")
+    if args.max_steps is not None and any(step > args.max_steps for step in milestone_steps):
+        raise SystemExit("--milestone-step cannot exceed --max-steps")
     if args.sampler_mode == "balanced" and args.max_steps is None:
         raise SystemExit("balanced training requires --max-steps")
     if (
@@ -234,7 +251,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("indexed MolProgram training requires BF16 CUDA")
     if not args.release_root.joinpath("RELEASE_COMPLETE").is_file():
         raise FileNotFoundError(f"release is not frozen: {args.release_root}")
-    if not args.input_adapter.joinpath("adapter_model.safetensors").is_file():
+    if (
+        args.input_adapter is not None
+        and not args.input_adapter.joinpath("adapter_model.safetensors").is_file()
+    ):
         raise FileNotFoundError(f"missing input adapter: {args.input_adapter}")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -255,7 +275,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.base_model, config=config, dtype=torch.bfloat16,
         low_cpu_mem_usage=True, local_files_only=True,
     )
-    model = peft.PeftModel.from_pretrained(base, args.input_adapter, is_trainable=True)
+    if args.input_adapter is not None:
+        model = peft.PeftModel.from_pretrained(base, args.input_adapter, is_trainable=True)
+    else:
+        model = peft.get_peft_model(
+            base,
+            peft.LoraConfig(
+                task_type=peft.TaskType.CAUSAL_LM,
+                r=args.lora_r,
+                lora_alpha=args.lora_alpha,
+                lora_dropout=args.lora_dropout,
+                bias="none",
+                target_modules=[
+                    "q_proj", "k_proj", "v_proj", "o_proj",
+                    "gate_proj", "up_proj", "down_proj",
+                ],
+            ),
+        )
     model.config.use_cache = False
     model.gradient_checkpointing_enable()
     model.enable_input_require_grads()
@@ -305,9 +341,54 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return TaskBalancedSampler(selected, args.seed, args.per_device_batch_size)
             return ProportionalOnePassSampler(selected, args.seed)
 
+    milestone_root = args.output_dir / "milestones"
+
+    class MilestoneAdapterCallback(transformers.TrainerCallback):
+        """Preserve adapter-only checkpoints even when Trainer rotates state."""
+
+        def on_step_end(self, training_args, state, control, **kwargs):
+            if int(state.global_step) in milestone_steps:
+                control.should_save = True
+            return control
+
+        def on_save(self, training_args, state, control, model=None, **kwargs):
+            step = int(state.global_step)
+            if step not in milestone_steps or model is None:
+                return control
+            adapter_dir = milestone_root / f"checkpoint-{step}" / "adapter"
+            adapter_dir.mkdir(parents=True, exist_ok=True)
+            model.save_pretrained(str(adapter_dir))
+            tokenizer.save_pretrained(adapter_dir)
+            effective_examples = (
+                step * args.per_device_batch_size * args.gradient_accumulation
+            )
+            bucket_count = len(dataset.bucket_indices)
+            per_bucket = (
+                effective_examples // bucket_count
+                if args.sampler_mode == "balanced" and effective_examples % bucket_count == 0
+                else None
+            )
+            manifest = {
+                "optimizer_step": step,
+                "effective_examples": effective_examples,
+                "sampler_mode": args.sampler_mode,
+                "task_bucket_count": bucket_count,
+                "examples_per_bucket": per_bucket,
+                "de_novo_examples": per_bucket * 6 if per_bucket is not None else None,
+                "editing_examples": per_bucket * 7 if per_bucket is not None else None,
+                "adapter": str(adapter_dir),
+                "evaluation_only": True,
+                "optimizer_state_preserved": False,
+            }
+            (adapter_dir.parent / "milestone_manifest.json").write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+            )
+            return control
+
     trainer = BalancedTrainer(
         model=model, args=training_args, train_dataset=dataset,
         data_collator=common.CompletionCollator(tokenizer),
+        callbacks=[MilestoneAdapterCallback()],
     )
     resume: bool | str = False
     if args.resume_from_checkpoint:
@@ -325,7 +406,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     tokenizer.save_pretrained(adapter)
     summary = {
         "protocol": "molprogram_indexed_sft_v1",
-        "base_model": args.base_model, "input_adapter": str(args.input_adapter),
+        "base_model": args.base_model,
+        "input_adapter": str(args.input_adapter) if args.input_adapter is not None else None,
+        "fresh_lora_from_base": args.fresh_lora,
+        "lora": {
+            "rank": args.lora_r,
+            "alpha": args.lora_alpha,
+            "dropout": args.lora_dropout,
+        },
         "loader_kind": loader_kind, "train_rows": len(dataset),
         "task_bucket_rows": {
             key: len(value) for key, value in sorted(dataset.bucket_indices.items())
@@ -359,6 +447,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             and args.num_train_epochs == 1.0
         ),
         "learning_rate": args.learning_rate, "resume_checkpoint": resume,
+        "milestone_steps": milestone_steps,
+        "milestone_root": str(milestone_root),
         "adapter_nonfinite_parameters": nonfinite,
         "train_metrics": dict(result.metrics), "adapter": str(adapter),
     }

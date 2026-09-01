@@ -47,11 +47,16 @@ scripts/
   build_dataset.py         audited, leakage-checked dataset construction
   train_sft.py             standard LoRA supervised fine-tuning
   train_indexed_sft.py     memory-bounded full-corpus continuation
+  audit_editing_reward_support.py  no-training RL support gate
   train_rl.py              group-relative online RL with SFT anchoring
   evaluate_raw1.py         matched target-blind Raw@1 evaluation
 ablations/
+  fresh_balanced/          fresh headline training and exposure checkpoints
   joint_vs_specialists/    matched shared-policy comparison
   negative_refinement/     positive-only versus structured negatives
+  safe_joint_raw1_grpo/    paired shared-policy Raw@1 GRPO method gate
+audits/
+  editing_reward_support/  preregistered online-RL go/no-go gate
 baselines/
   mumo_fresh/              fresh editing-only LoRA on MuMOInstruct
 recipes/                   reproducible command-line entrypoints
@@ -126,8 +131,17 @@ bash recipes/train_full_sft.sh
 Run target-blind group-relative RL from an SFT adapter:
 
 ```bash
+bash recipes/audit_editing_support.sh
 bash recipes/train_rl.sh
 ```
+
+The editing support audit is a required scientific gate, not a training stage.
+It samples the current policy at `K=32`, measures source-feasible and strict
+support, checks whether the hard reward ranks strict candidates correctly, and
+writes `support_report.json`. Do not launch editing online RL when its decision
+is `DO_NOT_RUN_ONLINE_RL_SUPPORT_TOO_LOW`. The RL recipe reads this report from
+`SUPPORT_REPORT` and stops before model loading unless the gate authorizes a
+small pilot.
 
 ## Matched joint-versus-specialist comparison
 
@@ -144,6 +158,17 @@ This comparison is the primary test of positive transfer and parameter
 efficiency from sharing a policy. See [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md)
 for the evaluation contract and [ablations/](ablations/) for the complete
 ablation index and historical protocols.
+
+The fresh reconstruction of the balanced headline schedule, including the
+100k, 200k, 500k, and full-exposure adapters, is defined in
+[ablations/fresh_balanced/](ablations/fresh_balanced/).
+
+The follow-up RL method gate is defined in
+[ablations/safe_joint_raw1_grpo/](ablations/safe_joint_raw1_grpo/). It starts
+from the final fresh, non-task-aligned balanced adapter, uses 16 candidates
+only for training-time advantage estimation, and evaluates one target-blind
+candidate per request. Its matched continued-SFT control receives the same
+paired prompts, optimizer steps, and checkpoint-selection budget.
 
 ## Data
 

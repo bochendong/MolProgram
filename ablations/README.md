@@ -9,8 +9,10 @@ recipes remain outside this directory.
 
 | Study | Question | Status | Primary comparison |
 |---|---|---|---|
+| [Fresh balanced](fresh_balanced/) | How do exposure and task-aligned refresh affect a balanced adapter trained from the unadapted backbone? | Runnable | 100k, 200k, 500k, and full exposure; final before versus after refresh |
 | [Joint versus specialists](joint_vs_specialists/) | Does sharing one policy provide positive transfer or parameter efficiency? | Runnable | One joint adapter versus two task-specific adapters |
 | [Negative refinement](negative_refinement/) | Do constructed negative completions improve the policy beyond matched positive-only training? | Protocol ready | Positive-only versus multi-negative contrastive refinement |
+| [Safe joint Raw@1 GRPO](safe_joint_raw1_grpo/) | Can paired shared-policy RL improve de novo Raw@1 without materially degrading editing? | Protocol and Slurm DAG ready | GRPO versus the fresh input policy and matched continued SFT |
 
 ## Reporting rules
 
