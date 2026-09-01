@@ -11,6 +11,7 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 : "${SAFE_GRPO_DENOVO_FINAL:?SAFE_GRPO_DENOVO_FINAL is required}"
 : "${SAFE_GRPO_EDIT_FINAL:?SAFE_GRPO_EDIT_FINAL is required}"
 : "${SAFE_GRPO_OUTPUT_ROOT:?SAFE_GRPO_OUTPUT_ROOT is required}"
+: "${SAFE_GRPO_ASSAY_ORACLE_DIR:?SAFE_GRPO_ASSAY_ORACLE_DIR is required}"
 PY="${SAFE_GRPO_PYTHON_BIN:-python}"
 
 module purge >/dev/null 2>&1 || true
@@ -22,7 +23,9 @@ for path in \
   "$SAFE_GRPO_INPUT_ADAPTER/adapter_model.safetensors" \
   "$SAFE_GRPO_TRAIN_JSONL" \
   "$SAFE_GRPO_DENOVO_DEV" "$SAFE_GRPO_EDIT_DEV" \
-  "$SAFE_GRPO_DENOVO_FINAL" "$SAFE_GRPO_EDIT_FINAL"; do
+  "$SAFE_GRPO_DENOVO_FINAL" "$SAFE_GRPO_EDIT_FINAL" \
+  "$SAFE_GRPO_ASSAY_ORACLE_DIR/gsk3b_legacy_sklearn_compatible.pkl" \
+  "$SAFE_GRPO_ASSAY_ORACLE_DIR/drd2_graph2graph_svc_py36.pkl"; do
   test -e "$path"
 done
 
@@ -30,6 +33,7 @@ done
   "$ROOT/src/molprogram/safe_grpo.py" \
   "$ROOT/scripts/train_safe_joint_raw1_grpo.py" \
   "$ROOT/scripts/train_continued_sft_control.py" \
+  "$SCRIPT_DIR/prepare_frozen_inputs.py" \
   "$SCRIPT_DIR/validate_inputs.py" \
   "$SCRIPT_DIR/select_checkpoint.py" "$SCRIPT_DIR/collect.py"
 "$PY" -m pytest -q "$ROOT/tests/test_safe_joint_raw1_grpo.py"

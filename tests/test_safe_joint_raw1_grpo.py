@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -145,6 +146,47 @@ def test_input_validation_rejects_split_overlap():
         validator.assert_disjoint(
             {"train": {"a", "b"}, "dev": {"c"}, "final": {"b"}}
         )
+
+
+def test_combined_gates_are_split_and_hashed(tmp_path, monkeypatch):
+    prepare = load(ABLATION / "prepare_frozen_inputs.py", "safe_input_prepare")
+    train = tmp_path / "train.jsonl"
+    train.write_text(json.dumps(row("de_novo", "de_novo:2p", 99)) + "\n")
+    sources = []
+    for split, offset in (("dev", 100), ("final", 200)):
+        source = tmp_path / f"{split}.jsonl"
+        source.write_text(
+            json.dumps(row("de_novo", "de_novo:2p", offset))
+            + "\n"
+            + json.dumps(row("edit", EDIT_BUCKETS[0], offset + 1))
+            + "\n"
+        )
+        sources.append(source)
+    output = tmp_path / "frozen"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prepare_frozen_inputs.py",
+            "--train-jsonl",
+            str(train),
+            "--dev-jsonl",
+            str(sources[0]),
+            "--final-jsonl",
+            str(sources[1]),
+            "--output-dir",
+            str(output),
+        ],
+    )
+    assert prepare.main() == 0
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["row_counts"] == {
+        "dev_denovo": 1,
+        "dev_edit": 1,
+        "final_denovo": 1,
+        "final_edit": 1,
+    }
+    assert (output / "INPUTS_FROZEN").is_file()
 
 
 def test_promotion_requires_a_safe_development_checkpoint():

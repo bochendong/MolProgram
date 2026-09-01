@@ -38,3 +38,7 @@ For Slurm, set the `SAFE_GRPO_*` paths documented at the top of
 [`submit_slurm.sh`](submit_slurm.sh). An optional `SAFE_GRPO_DEPENDENCY` can point to
 the fresh-balanced training job. The submission keeps development selection
 and final evaluation in separate dependent jobs.
+
+If the preregistered development and final gates are stored as combined-mode
+JSONL files, run `prepare_frozen_inputs.py` once to create the four immutable
+mode-specific paths and a SHA-256 manifest consumed by the Slurm submission.

@@ -9,6 +9,8 @@ module purge >/dev/null 2>&1 || true
 module load StdEnv/2023 python/3.11 rdkit/2025.09.4 cuda/12.6
 export PYTHONPATH="${SAFE_GRPO_DEP_OVERLAY:-$ROOT/src}:$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 export HF_HOME="${HF_HOME:-$ROOT/.cache/huggingface}" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export SUCC_GSK3B_ORACLE_PATH="$SAFE_GRPO_ASSAY_ORACLE_DIR/gsk3b_legacy_sklearn_compatible.pkl"
+export SUCC_DRD2_ORACLE_PATH="$SAFE_GRPO_ASSAY_ORACLE_DIR/drd2_graph2graph_svc_py36.pkl"
 
 "$SCRIPT_DIR/run_one_eval.sh" "$SAFE_GRPO_INPUT_ADAPTER" baseline \
   "$SAFE_GRPO_DENOVO_DEV" "$SAFE_GRPO_EDIT_DEV" "$OUT/gate/dev/baseline"
