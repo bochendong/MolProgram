@@ -1,0 +1,82 @@
+{
+  "protocol": "molprogram_safe_joint_raw1_grpo_100k_pilot_v1",
+  "status": "frozen before 100k-policy RL training",
+  "relationship_to_main_protocol": "A faster pilot using the completed fresh 100k-per-mode joint adapter; the full fresh-balanced protocol remains unchanged and queued.",
+  "question": "Can candidate-level shared-policy GRPO improve de novo Raw@1 while preserving editing and outperforming matched continued SFT when initialized from the fresh 100k-per-mode joint adapter?",
+  "initialization": {
+    "policy": "P35 fresh joint adapter trained on 100000 de novo and 100000 editing examples",
+    "adapter_path": "/scratch/bdong/projects/Diffusion-Molecule/SketchMol-Understanding-Condition/outputs/p35_joint_vs_separate_scale_sweep/scale_100000/seed_33101/model/joint/adapter",
+    "training_complete_marker": "/scratch/bdong/projects/Diffusion-Molecule/SketchMol-Understanding-Condition/outputs/p35_joint_vs_separate_scale_sweep/scale_100000/seed_33101/model/joint/TRAINING_COMPLETE",
+    "fresh_lora_from_base": true,
+    "task_aligned_refresh": false,
+    "historical_inherited_adapter": false,
+    "adapter_shared_across_modes": true
+  },
+  "support_gate": {
+    "protocol": "molprogram_editing_reward_support_audit_v1",
+    "required_decision": "PROCEED_TO_SMALL_ONLINE_RL_PILOT",
+    "target_smiles_access": false
+  },
+  "training": {
+    "paired_optimizer_steps": 30,
+    "groups_per_step": {"de_novo": 1, "edit": 1},
+    "group_size": 16,
+    "group_use": "training exploration and within-prompt advantage estimation only",
+    "objective": "candidate-level expected reward aligned with Raw@1",
+    "soft_or_across_candidates": false,
+    "best_of_k_objective": false,
+    "de_novo_schedule": "five groups for each arity 2p through 7p",
+    "edit_schedule": "three groups for each exact registered editing task",
+    "learning_rate": 1.5e-7,
+    "denovo_sft_anchor_weight": 1.5,
+    "edit_sft_anchor_weight": 1.5,
+    "reference_kl_weight": 0.1,
+    "reference_kl": "token-level sampled k3 against frozen input adapter",
+    "advantage": "per-prompt per-channel group z-score then aggregate and renormalize",
+    "gradient_merge": "equal-norm bisector of separately differentiated mode losses",
+    "checkpoint_steps": [10, 20, 30],
+    "reward_target_smiles_access": false,
+    "seed": 37001
+  },
+  "continued_sft_control": {
+    "same_initial_adapter": true,
+    "same_paired_prompts": true,
+    "same_optimizer_steps": true,
+    "same_learning_rate": true,
+    "same_gradient_merge": true,
+    "same_checkpoint_selection_budget": true,
+    "rollout_compute_matched": false
+  },
+  "development_selection": {
+    "steps": [10, 20, 30],
+    "final_gate_access": false,
+    "safety_margins": {
+      "edit_strict_delta_min": -0.01,
+      "edit_relaxed_delta_min": -0.01,
+      "denovo_valid_delta_min": -0.01,
+      "edit_valid_delta_min": -0.01
+    },
+    "selection": "prefer safety-eligible checkpoints, then maximize de novo strict delta, then maximin strict delta, then earlier step",
+    "promotion_requires_selected_rl_checkpoint_safety_eligible": true
+  },
+  "heldout_confirmation": {
+    "evaluation": "one sampled candidate per condition, temperature 0.8, top_p 0.95",
+    "property_reranking": false,
+    "evaluation_budget": 1,
+    "vs_initial_policy": {
+      "denovo_strict_delta_min": 0.02,
+      "edit_strict_delta_min": -0.01,
+      "edit_relaxed_delta_min": -0.01,
+      "denovo_valid_delta_min": -0.01,
+      "edit_valid_delta_min": -0.01
+    },
+    "vs_continued_sft": {
+      "denovo_strict_delta_min": 0.01,
+      "edit_strict_delta_min": -0.01,
+      "edit_relaxed_delta_min": -0.01,
+      "denovo_valid_delta_min": -0.01,
+      "edit_valid_delta_min": -0.01
+    },
+    "uncertainty": "paired task-stratified bootstrap with 2000 replicates, reported but not used to change the locked point-estimate gate"
+  }
+}
