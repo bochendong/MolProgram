@@ -16,6 +16,7 @@ SOURCE_DIR = SCRIPT_DIR.parent / "src"
 if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 from molprogram import protocol  # noqa: E402
+from molprogram import program_routing  # noqa: E402
 from molprogram.scoring import property_count, score_response  # noqa: E402
 
 
@@ -33,7 +34,10 @@ def read_jsonl(path: Path) -> list[dict[str, object]]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def generate_records(model, tokenizer, rows, *, seed: int, batch_size: int, mode_offset: int):
+def generate_records(
+    model, tokenizer, rows, *, seed: int, batch_size: int, mode_offset: int,
+    routing_layout=None,
+):
     import torch
 
     records: list[dict[str, object]] = []
@@ -46,6 +50,9 @@ def generate_records(model, tokenizer, rows, *, seed: int, batch_size: int, mode
             for row in batch
         ]
         encoded = tokenizer(prompts, return_tensors="pt", padding=True).to(model.device)
+        if routing_layout is not None:
+            route_mask = program_routing.route_matrix(batch, routing_layout).to(model.device)
+            program_routing.set_lora_route_mask(model, route_mask)
         offset = encoded["input_ids"].shape[1]
         torch.manual_seed(seed + mode_offset + start)
         with torch.no_grad():
@@ -92,6 +99,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--protocol", default="molprogram_raw1_v1"
     )
+    parser.add_argument(
+        "--routing-config",
+        type=Path,
+        help="Optional property-program LoRA rank-routing layout.",
+    )
     args = parser.parse_args(argv)
 
     import peft
@@ -118,14 +130,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     model = peft.PeftModel.from_pretrained(base, args.adapter_dir).cuda().eval()
     model.config.use_cache = True
+    routing_layout = None
+    if args.routing_config is not None:
+        routing_layout = program_routing.load_layout(args.routing_config)
+        program_routing.install_lora_rank_routing(
+            model, rank=int(routing_layout["rank"])
+        )
     records = generate_records(
         model, tokenizer, de_novo,
         seed=args.seed, batch_size=args.batch_size, mode_offset=0,
+        routing_layout=routing_layout,
     )
     records.extend(
         generate_records(
             model, tokenizer, editing,
             seed=args.seed, batch_size=args.batch_size, mode_offset=100000,
+            routing_layout=routing_layout,
         )
     )
 
@@ -171,6 +191,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "arm": args.arm,
         "sampling": {"temperature": 0.8, "top_p": 0.95, "seed": args.seed},
         "property_reranking": False,
+        "program_routing": (
+            str(args.routing_config.resolve()) if args.routing_config else None
+        ),
         "rows": {"de_novo": len(de_novo), "edit": len(editing)},
         "aggregate": {
             "denovo_strict_macro": mean(v["strict_rate"] for v in de_buckets.values()),

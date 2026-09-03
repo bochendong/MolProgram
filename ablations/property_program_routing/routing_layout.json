@@ -1,0 +1,24 @@
+{
+  "name": "property_support_rank16_v1",
+  "rank": 16,
+  "normalization": "rms_active",
+  "common_ranks": [0, 1, 2, 3, 4, 5, 6, 7],
+  "property_ranks": {
+    "MW": [8, 9],
+    "LogP": [9, 10],
+    "QED": [10, 11],
+    "HBA": [8, 10],
+    "RB": [9, 11],
+    "TPSA": [12],
+    "HBD": [13],
+    "SA": [14],
+    "GSK3B": [15],
+    "DRD2": [14, 15]
+  },
+  "mode_ranks": {},
+  "support_groups": {
+    "shared": ["MW", "LogP", "QED", "HBA", "RB"],
+    "de_novo_only": ["TPSA", "HBD"],
+    "edit_only": ["SA", "GSK3B", "DRD2"]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "protocol": "property_program_routed_lora_10k_v1",
+  "question": "Can deterministic property-support routing retain shared-property transfer while reducing edit-only negative transfer?",
+  "status": "preregistered_before_training",
+  "baseline": "completed fresh joint rank-16 LoRA at 10k examples per mode",
+  "initialization": "fresh rank-16 LoRA from the same unadapted backbone",
+  "data": {
+    "train": "byte-identical train.joint.jsonl from the completed 10k baseline",
+    "de_novo_examples": 10000,
+    "editing_examples": 10000,
+    "denovo_gate": "byte-identical 120-request Raw@1 gate from the 10k baseline",
+    "editing_gate": "byte-identical 500-request Raw@1 gate from the 10k baseline"
+  },
+  "method": {
+    "adapter": "one standard PEFT LoRA with deterministic masks over its rank axis",
+    "rank": 16,
+    "alpha": 32,
+    "dropout": 0.05,
+    "common_ranks": 8,
+    "shared_property_rank_pool": [8, 9, 10, 11],
+    "de_novo_only_rank_pool": [12, 13],
+    "edit_only_rank_pool": [14, 15],
+    "routing": "the prompt-visible property names activate a fixed union of rank slots",
+    "normalization": "each binary mask is scaled to squared L2 norm 16",
+    "learned_router": false,
+    "extra_trainable_parameters": 0,
+    "inference_search": false
+  },
+  "training": {
+    "epochs": 1.0,
+    "learning_rate": 0.00008,
+    "gradient_accumulation": 32,
+    "physical_batch_size": 1,
+    "max_length": 448,
+    "seed": 33101
+  },
+  "evaluation": {
+    "sampling_seed": 33151,
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "raw_at_1": true,
+    "property_reranking": false,
+    "primary": "Edit-only-5 strict success at source similarity 0.65",
+    "guardrails": [
+      "Shared-5 strict success",
+      "All-10 editing strict success",
+      "de novo 2p-7p strict macro",
+      "both-mode validity"
+    ]
+  },
+  "decision_rule": {
+    "edit_only_gain_over_vanilla_joint_pp": 2.0,
+    "maximum_shared_strict_regression_pp": 2.0,
+    "maximum_denovo_strict_regression_pp": 2.0,
+    "maximum_validity_regression_pp": 2.0,
+    "parameter_count_must_match_vanilla_joint": true
+  },
+  "reporting": "report all endpoints regardless of outcome"
+}
