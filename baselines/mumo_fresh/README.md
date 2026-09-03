@@ -31,6 +31,19 @@ The corrected baseline changes the numerical contract before rerunning:
 The smoke model is a safety gate only. The full arm starts again from the clean
 base model and never resumes from the smoke or failed adapter.
 
+## Official Raw@1 evaluation
+
+`submit_raw1.sh` evaluates the validated final adapter on the frozen ten-task
+MuMO gate: 1,992 target-free conditions, one sampled completion per condition,
+and no property reranking or validity repair. Each gate row is joined back to
+the original test JSON so generation uses its recorded instruction variant.
+The dependent scoring job uses the same ADMET-AI/TDC oracle pipeline as the
+repository's existing MuMO evaluation and reports official SR, similarity and
+relative improvement, plus validity and source-preserving strict success.
+
+Raw@1 is reported separately from literature numbers using 20 candidates per
+input; the two budgets must not be presented as a like-for-like comparison.
+
 ## Submit
 
 Prepare the indexed JSONL with `prepare_data.py`, or point to a frozen release
@@ -40,6 +53,14 @@ containing both `.jsonl` and `.idx` files. Then run:
 export MUMO_TRAIN_JSONL=/path/to/mumo_train.jsonl
 export MUMO_BASE_MODEL=/path/to/Qwen2.5-VL-7B-Instruct
 bash baselines/mumo_fresh/submit.sh
+```
+
+After training validates, set the frozen gate, original test JSON, evaluator
+root, oracle cache, Python environments, base model, and final adapter, then
+run:
+
+```bash
+bash baselines/mumo_fresh/submit_raw1.sh
 ```
 
 Outputs default to `outputs/baselines/mumo_fresh/stable_v2_seed_32002`. The full job is

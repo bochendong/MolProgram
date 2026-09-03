@@ -1,0 +1,31 @@
+{
+  "protocol": "mumo_fresh_official_raw1_v1",
+  "checkpoint": "fresh MuMO stable-v2 final adapter",
+  "benchmark": {
+    "suite": "MuMOInstruct",
+    "tasks": ["BDP", "BDQ", "BPQ", "DPQ", "BDPQ", "MPQ", "BDMQ", "BHMQ", "BMPQ", "HMPQ"],
+    "frozen_conditions": 1992,
+    "condition_source": "the existing target-free official MuMO gate",
+    "instruction_source": "instr_idx joined from the original MuMO test JSON by external_source_row_index"
+  },
+  "generation": {
+    "candidate_budget": 1,
+    "raw_at_1": true,
+    "generation_batch_size": 1,
+    "do_sample": true,
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "max_new_tokens": 128,
+    "seed": 32021,
+    "target_access": false,
+    "property_reranking": false,
+    "validity_repair": false
+  },
+  "evaluation": {
+    "property_oracles": "same frozen ADMET-AI and TDC pipeline used by the repository MuMO benchmark",
+    "official_metrics": ["SR", "Sim(success)", "RI(success)"],
+    "diagnostics": ["validity", "source_similarity", "strict_success"],
+    "strict_source_tanimoto_threshold": 0.4
+  },
+  "reporting": "Raw@1 results must be labeled separately from external 20-candidate literature values"
+}

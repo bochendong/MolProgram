@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 
@@ -42,3 +43,30 @@ def test_stability_contract_excludes_output_head():
     assert trainer.DEFAULT_BATCH_SIZE == 1
     assert trainer.DEFAULT_GRADIENT_ACCUMULATION == 128
     assert trainer.DEFAULT_BATCH_SIZE * trainer.DEFAULT_GRADIENT_ACCUMULATION == 128
+
+
+def test_raw1_protocol_is_single_sample_target_blind_and_unranked():
+    payload = json.loads((BASELINE / "raw1_protocol.json").read_text())
+    generation = payload["generation"]
+    assert payload["benchmark"]["frozen_conditions"] == 1992
+    assert len(payload["benchmark"]["tasks"]) == 10
+    assert generation["candidate_budget"] == 1
+    assert generation["raw_at_1"] is True
+    assert generation["generation_batch_size"] == 1
+    assert generation["target_access"] is False
+    assert generation["property_reranking"] is False
+    assert generation["validity_repair"] is False
+
+
+def test_raw1_pipeline_restores_instruction_index_and_orders_dependencies():
+    generator = (BASELINE / "generate_raw1.py").read_text()
+    submit = (BASELINE / "submit_raw1.sh").read_text()
+    collector = (BASELINE / "collect_raw1.py").read_text()
+    assert 'source_row["instr_idx"]' in generator
+    assert 'num_return_sequences=1' in generator
+    assert '"property_reranking": False' in generator
+    assert '"target_access": False' in generator
+    assert 'afterok:$preflight' in submit
+    assert 'afterok:$generate' in submit
+    assert 'afterok:$score' in submit
+    assert 'candidate_rows' in collector and 'input_groups' in collector
