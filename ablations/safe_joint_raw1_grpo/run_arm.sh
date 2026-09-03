@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_DIR="${SAFE_GRPO_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+ROOT="${SAFE_GRPO_REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 ARM="${SAFE_GRPO_ARM:?SAFE_GRPO_ARM must be rl or continued_sft}"
 OUT="${SAFE_GRPO_OUTPUT_ROOT:?SAFE_GRPO_OUTPUT_ROOT is required}"
 PY="${SAFE_GRPO_PYTHON_BIN:-python}"

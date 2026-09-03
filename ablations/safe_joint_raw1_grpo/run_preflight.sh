@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_DIR="${SAFE_GRPO_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+ROOT="${SAFE_GRPO_REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 : "${SAFE_GRPO_INPUT_ADAPTER:?SAFE_GRPO_INPUT_ADAPTER is required}"
 : "${SAFE_GRPO_INPUT_MARKER:?SAFE_GRPO_INPUT_MARKER is required}"
 : "${SAFE_GRPO_TRAIN_JSONL:?SAFE_GRPO_TRAIN_JSONL is required}"

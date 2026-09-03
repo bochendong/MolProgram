@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_DIR="${SAFE_GRPO_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+ROOT="${SAFE_GRPO_REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 ADAPTER="${1:?adapter path is required}"
 LABEL="${2:?evaluation label is required}"
 DENOVO="${3:?de novo gate is required}"
