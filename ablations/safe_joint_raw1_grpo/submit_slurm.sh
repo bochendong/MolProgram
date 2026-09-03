@@ -37,7 +37,7 @@ audit=$(sbatch --parsable --account="$ACCOUNT" --job-name=safegrpo-support \
   --time=08:00:00 --cpus-per-task=6 --mem=40G --gres="$GPU" \
   --dependency="afterok:$preflight" --kill-on-invalid-dep=yes \
   --output="$LOG_DIR/support-%j.log" \
-  --export="$common_export,AUDIT_SCRIPT_DIR=$ROOT/audits/editing_reward_support,AUDIT_BASE_MODEL=$SAFE_GRPO_BASE_MODEL,AUDIT_ADAPTER_DIR=$SAFE_GRPO_INPUT_ADAPTER,AUDIT_TRAIN_JSONL=$SAFE_GRPO_TRAIN_JSONL,AUDIT_OUTPUT_ROOT=$OUT/support" \
+  --export="$common_export,AUDIT_SCRIPT_DIR=$ROOT/audits/editing_reward_support,AUDIT_BASE_MODEL=$SAFE_GRPO_BASE_MODEL,AUDIT_ADAPTER_DIR=$SAFE_GRPO_INPUT_ADAPTER,AUDIT_TRAIN_JSONL=$SAFE_GRPO_TRAIN_JSONL,AUDIT_OUTPUT_ROOT=$OUT/support,AUDIT_PYTHON_BIN=${SAFE_GRPO_PYTHON_BIN:-python},AUDIT_DEP_OVERLAY=${SAFE_GRPO_DEP_OVERLAY:-$ROOT/src}" \
   "$ROOT/audits/editing_reward_support/run.sh")
 
 rl=$(sbatch --parsable --account="$ACCOUNT" --job-name=safegrpo-joint-rl \

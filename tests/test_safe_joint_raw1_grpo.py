@@ -136,6 +136,8 @@ def test_slurm_chain_keeps_dev_selection_before_final_evaluation():
     select = (ABLATION / "select_checkpoint.py").read_text()
     assert "afterok:$dev_eval" in submit
     assert "afterok:$select" in submit
+    assert "AUDIT_PYTHON_BIN=${SAFE_GRPO_PYTHON_BIN:-python}" in submit
+    assert "AUDIT_DEP_OVERLAY=${SAFE_GRPO_DEP_OVERLAY:-$ROOT/src}" in submit
     assert "--final" not in select
     assert '"selection_uses_final_gate": False' in select
 
