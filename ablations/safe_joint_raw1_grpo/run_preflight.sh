@@ -34,6 +34,7 @@ done
   "$ROOT/scripts/train_safe_joint_raw1_grpo.py" \
   "$ROOT/scripts/train_continued_sft_control.py" \
   "$SCRIPT_DIR/prepare_frozen_inputs.py" \
+  "$SCRIPT_DIR/prepare_stratified_frozen_inputs.py" \
   "$SCRIPT_DIR/validate_inputs.py" \
   "$SCRIPT_DIR/select_checkpoint.py" "$SCRIPT_DIR/collect.py"
 "$PY" -m pytest -q "$ROOT/tests/test_safe_joint_raw1_grpo.py"

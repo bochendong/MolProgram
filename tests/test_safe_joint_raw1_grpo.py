@@ -189,6 +189,37 @@ def test_combined_gates_are_split_and_hashed(tmp_path, monkeypatch):
     assert (output / "INPUTS_FROZEN").is_file()
 
 
+def test_mode_gates_are_split_stratified_and_disjoint():
+    prepare = load(
+        ABLATION / "prepare_stratified_frozen_inputs.py", "safe_stratified_prepare"
+    )
+    de_novo = [
+        row("de_novo", bucket, index)
+        for bucket in DE_NOVO_BUCKETS
+        for index in range(4)
+    ]
+    editing = [
+        row("edit", bucket, index)
+        for bucket in EDIT_BUCKETS
+        for index in range(4)
+    ]
+    de_dev, de_final, de_unused = prepare.stratified_split(
+        de_novo, DE_NOVO_BUCKETS, 2, 37001
+    )
+    edit_dev, edit_final, edit_unused = prepare.stratified_split(
+        editing, EDIT_BUCKETS, 2, 37001
+    )
+    assert set(Counter(balanced_bucket(item) for item in de_dev).values()) == {2}
+    assert set(Counter(balanced_bucket(item) for item in de_final).values()) == {2}
+    assert set(Counter(balanced_bucket(item) for item in edit_dev).values()) == {2}
+    assert set(Counter(balanced_bucket(item) for item in edit_final).values()) == {2}
+    assert {prepare.identity(item) for item in de_dev + edit_dev}.isdisjoint(
+        {prepare.identity(item) for item in de_final + edit_final}
+    )
+    assert de_unused == 0
+    assert edit_unused == 0
+
+
 def test_promotion_requires_a_safe_development_checkpoint():
     collector = load(ABLATION / "collect.py", "safe_collector_gate")
     passing = {"metric": True}

@@ -17,6 +17,17 @@
     "required_decision": "PROCEED_TO_SMALL_ONLINE_RL_PILOT",
     "target_smiles_access": false
   },
+  "evaluation_inputs": {
+    "source": "P35 fresh scale-sweep held-out gates",
+    "split_protocol": "deterministic task-stratified split frozen before RL training",
+    "seed": 37001,
+    "de_novo_per_bucket_per_split": 10,
+    "edit_per_task_per_split": 20,
+    "development_rows": {"de_novo": 60, "edit": 200},
+    "final_rows": {"de_novo": 60, "edit": 200},
+    "development_final_disjoint": true,
+    "training_disjointness_checked_by_preflight": true
+  },
   "training": {
     "paired_optimizer_steps": 30,
     "groups_per_step": {"de_novo": 1, "edit": 1},
