@@ -63,12 +63,32 @@ def endpoint(summary: Mapping[str, object]) -> dict[str, object]:
     }
 
 
+def denovo_endpoint(summary: Mapping[str, object]) -> dict[str, object]:
+    aggregate = summary["aggregate"]
+    assert isinstance(aggregate, Mapping)
+    return {
+        "denovo_strict_macro": aggregate["denovo_strict_macro"],
+        "denovo_valid_macro": aggregate["denovo_valid_macro"],
+    }
+
+
+def edit_endpoint(summary: Mapping[str, object]) -> dict[str, object]:
+    aggregate = summary["aggregate"]
+    assert isinstance(aggregate, Mapping)
+    return {
+        "edit_all10_strict_065_macro": aggregate["edit_strict_065_macro"],
+        "edit_all10_valid_macro": aggregate["edit_valid_macro"],
+        "edit_shared5": editing_subset(summary, SHARED_TASKS),
+        "edit_only5": editing_subset(summary, EDIT_ONLY_TASKS),
+    }
+
+
 def summarize(candidate, joint, denovo, edit, candidate_train, joint_train):
     arms = {
         "property_program_routed": endpoint(candidate),
         "vanilla_joint": endpoint(joint),
-        "denovo_specialist": endpoint(denovo),
-        "edit_specialist": endpoint(edit),
+        "denovo_specialist": denovo_endpoint(denovo),
+        "edit_specialist": edit_endpoint(edit),
     }
     routed = arms["property_program_routed"]
     vanilla = arms["vanilla_joint"]

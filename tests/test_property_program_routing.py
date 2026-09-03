@@ -130,3 +130,32 @@ def test_decision_requires_private_gain_guardrails_and_parameter_parity():
     )
     assert result["decision"] == "supported"
     assert result["deltas"]["edit_only5_strict_vs_vanilla_joint"] == pytest.approx(0.03)
+
+
+def test_collector_accepts_mode_specific_specialist_summaries():
+    candidate = evaluation(shared=0.25, private=0.23)
+    vanilla = evaluation(shared=0.26, private=0.20)
+    denovo = {
+        "aggregate": {
+            "denovo_strict_macro": 0.12,
+            "denovo_valid_macro": 0.92,
+        }
+    }
+    edit_full = evaluation(shared=0.22, private=0.25)
+    edit = {
+        "aggregate": {
+            "edit_strict_065_macro": edit_full["aggregate"]["edit_strict_065_macro"],
+            "edit_valid_macro": edit_full["aggregate"]["edit_valid_macro"],
+        },
+        "edit_buckets": edit_full["edit_buckets"],
+    }
+    result = collect.summarize(
+        candidate,
+        vanilla,
+        denovo,
+        edit,
+        {"trainable_parameters": 100, "extra_trainable_routing_parameters": 0},
+        {"trainable_parameters": 100},
+    )
+    assert result["arms"]["denovo_specialist"]["denovo_strict_macro"] == 0.12
+    assert result["arms"]["edit_specialist"]["edit_only5"]["strict_065_macro"] == 0.25
