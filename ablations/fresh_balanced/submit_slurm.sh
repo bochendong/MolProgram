@@ -36,7 +36,7 @@ smoke=$(sbatch --parsable --account="$ACCOUNT" --job-name=fresh-balanced-smoke \
   "$SCRIPT_DIR/run_slurm.sh")
 
 full=$(sbatch --parsable --account="$ACCOUNT" --job-name=fresh-balanced-full \
-  --time=1-10:00:00 --cpus-per-task=4 --mem=48G --gres="$GPU" \
+  --time=3-00:00:00 --cpus-per-task=4 --mem=48G --gres="$GPU" \
   --dependency="afterok:$smoke" --kill-on-invalid-dep=yes \
   --output="$LOG_DIR/full-%j.log" --export="$common,FRESH_RUN_MODE=full" \
   "$SCRIPT_DIR/run_slurm.sh")

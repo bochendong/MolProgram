@@ -54,3 +54,4 @@ def test_slurm_chain_orders_smoke_before_full_and_supports_deferred_start():
     assert 'afterok:$smoke' in submit
     assert "checkpoint-16283/adapter" in submit
     assert "stable_v2_seed_36001" in submit
+    assert "--time=3-00:00:00" in submit

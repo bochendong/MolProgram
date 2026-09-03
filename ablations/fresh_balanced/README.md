@@ -33,6 +33,8 @@ after every update, so a bad update cannot silently poison later checkpoints.
 The corrected run writes to `outputs/fresh_balanced/stable_v2_seed_36001`; the
 old `seed_36001/smoke/checkpoint-20` is retained only as failure evidence and is
 never used for resume.
+At the measured smoke throughput, the full run is expected to take roughly 59
+hours, so the Slurm chain requests the partition maximum of 72 hours.
 
 Run a smoke test and then the full fresh training:
 

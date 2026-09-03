@@ -26,7 +26,8 @@
     "correction": "use physical batch 1 for variable-length rows, preserve effective batch 65 with accumulation 65, and reduce learning rate from 8e-5 to 2e-5",
     "smoke_gate": "check every microbatch loss and gradient; release full training only after a clean smoke test",
     "full_guard": "check gradients before every optimizer step and adapter values after every optimizer step",
-    "clean_output_root": "outputs/fresh_balanced/stable_v2_seed_36001"
+    "clean_output_root": "outputs/fresh_balanced/stable_v2_seed_36001",
+    "slurm_full_time_limit": "3-00:00:00"
   },
   "milestones": [
     {"step": 1539, "effective_examples": 100035, "de_novo_examples": 46170, "editing_examples": 53865},
