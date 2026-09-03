@@ -1,0 +1,25 @@
+{
+  "protocol": "property_program_routed_lora_10k_dense_inference_diagnostic_v1",
+  "status": "frozen after the hard-routing result and before dense evaluation",
+  "type": "post-hoc mechanism diagnostic; not an independent confirmatory result",
+  "question": "Did the failed 10k result arise primarily from applying a hard rank mask at inference?",
+  "checkpoint": "the completed property_program_routed_lora_10k_v1 adapter; no additional training",
+  "inference_change": "activate all 16 LoRA ranks by omitting the routing configuration",
+  "held_constant": [
+    "120-request de novo gate",
+    "500-request editing gate",
+    "sampling seed 33151",
+    "temperature 0.8",
+    "top-p 0.95",
+    "Raw@1 without reranking"
+  ],
+  "comparisons": [
+    "dense inference minus the original hard-routed inference",
+    "dense inference minus the byte-identical-data vanilla joint baseline"
+  ],
+  "interpretation": {
+    "dense_recovers_both_failed_endpoints": "treat hard inference masking as the leading failure mechanism and test residual routing next",
+    "dense_recovers_capacity_but_loses_shared_gain": "test soft residual property modulation rather than hard routing",
+    "dense_does_not_recover": "stop the rank-routing direction before any 100k training"
+  }
+}

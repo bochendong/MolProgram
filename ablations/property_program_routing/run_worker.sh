@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STAGE="${1:?stage must be preflight, smoke, train, evaluate, or collect}"
+STAGE="${1:?stage must be preflight, smoke, train, evaluate, evaluate_dense, collect, or collect_dense}"
 : "${REPO_ROOT:?REPO_ROOT must be exported}"
 : "${MODEL:?MODEL must be exported}"
 : "${BASELINE_ROOT:?BASELINE_ROOT must be exported}"
@@ -63,6 +63,16 @@ case "$STAGE" in
       --arm property_program_routed --output-dir "$WORK_DIR/eval" \
       --batch-size 8 --seed "$((SEED + 50))" --protocol "$PROTOCOL"
     ;;
+  evaluate_dense)
+    "$PYTHON_BIN" "$REPO_ROOT/scripts/evaluate_raw1.py" \
+      --denovo-gate "$BASELINE_ROOT/data/gate.denovo.jsonl" \
+      --edit-gate "$BASELINE_ROOT/data/gate.edit.jsonl" \
+      --base-model "$MODEL" --adapter-dir "$WORK_DIR/model/adapter" \
+      --arm property_program_routed_dense_inference \
+      --output-dir "$WORK_DIR/eval_dense" --batch-size 8 \
+      --seed "$((SEED + 50))" \
+      --protocol property_program_routed_lora_10k_dense_inference_diagnostic_v1
+    ;;
   collect)
     joint_eval="$(first_existing \
       "$BASELINE_ROOT/joint/eval/summary.json" \
@@ -82,6 +92,16 @@ case "$STAGE" in
       --edit-summary "$edit_eval" \
       --candidate-train "$WORK_DIR/model/training_summary.json" \
       --joint-train "$joint_train" --output-dir "$WORK_DIR/result"
+    ;;
+  collect_dense)
+    joint_eval="$(first_existing \
+      "$BASELINE_ROOT/joint/eval/summary.json" \
+      "$BASELINE_ROOT/eval/joint/summary.json")"
+    "$PYTHON_BIN" "$SCRIPT_DIR/collect_dense_diagnostic.py" \
+      --dense-summary "$WORK_DIR/eval_dense/summary.json" \
+      --hard-summary "$WORK_DIR/eval/summary.json" \
+      --vanilla-summary "$joint_eval" \
+      --output-dir "$WORK_DIR/dense_diagnostic"
     ;;
   *)
     printf 'unsupported stage: %s\n' "$STAGE" >&2

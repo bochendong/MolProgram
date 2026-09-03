@@ -27,6 +27,9 @@ def load_module(name: str, path: Path):
 
 
 collect = load_module("property_routing_collect", ABLATION / "collect.py")
+dense_collect = load_module(
+    "property_routing_dense_collect", ABLATION / "collect_dense_diagnostic.py"
+)
 
 
 def row(mode: str, props: tuple[str, ...]):
@@ -159,3 +162,14 @@ def test_collector_accepts_mode_specific_specialist_summaries():
     )
     assert result["arms"]["denovo_specialist"]["denovo_strict_macro"] == 0.12
     assert result["arms"]["edit_specialist"]["edit_only5"]["strict_065_macro"] == 0.25
+
+
+def test_dense_diagnostic_compares_hard_and_vanilla_without_promotion():
+    dense = evaluation(shared=0.28, private=0.20, de=0.06)
+    hard = evaluation(shared=0.34, private=0.00, de=0.01)
+    vanilla = evaluation(shared=0.26, private=0.19, de=0.06)
+    result = dense_collect.summarize(dense, hard, vanilla)
+    assert result["deltas"]["dense_minus_hard"]["denovo_strict_macro"] == pytest.approx(0.05)
+    assert result["deltas"]["dense_minus_hard"]["edit_only5_strict_065_macro"] == pytest.approx(0.20)
+    assert result["diagnostic_checks"]["shared_gain_at_least_2pp_vs_vanilla"]
+    assert result["confirmatory_claim_allowed"] is False

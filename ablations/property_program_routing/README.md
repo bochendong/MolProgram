@@ -26,3 +26,18 @@ bash ablations/property_program_routing/submit_slurm.sh
 ```
 
 Outputs are written to `outputs/property-program-routing-10k` by default.
+
+## Post-hoc dense-inference diagnostic
+
+The frozen hard-routing result activates untrained private ranks for properties
+absent from the 10k scale-sweep training data and fails its primary endpoint.
+`dense_inference_diagnostic.json` therefore registers a mechanism diagnostic:
+reuse the completed routed adapter and Raw@1 gates, but activate all LoRA ranks
+at inference. This diagnostic requires no additional training and cannot be
+reported as an independent confirmatory result.
+
+```bash
+export MODEL=/path/to/Qwen2.5-VL-7B-Instruct
+export BASELINE_ROOT=/path/to/completed/fresh-10k
+bash ablations/property_program_routing/submit_dense_diagnostic.sh
+```
