@@ -1,6 +1,6 @@
 {
-  "protocol": "fresh_balanced_molprogram_v1",
-  "status": "frozen before accelerator training",
+  "protocol": "fresh_balanced_molprogram_v2_stable",
+  "status": "stability-corrected after the v1 smoke test became non-finite",
   "initialization": {
     "input_adapter": null,
     "lora_rank": 16,
@@ -13,12 +13,19 @@
     "rows_per_bucket": 81415,
     "effective_examples": 1058395,
     "optimizer_steps": 16283,
-    "physical_batch_size": 5,
-    "gradient_accumulation": 13,
+    "physical_batch_size": 1,
+    "gradient_accumulation": 65,
     "effective_batch_size": 65,
-    "learning_rate": 0.00008,
+    "learning_rate": 0.00002,
     "warmup_steps": 100,
     "seed": 36001
+  },
+  "numerical_safety": {
+    "v1_failed_job": 20967745,
+    "v1_failure": "non-finite loss, gradient norm, and all trainable adapter values during the 20-step smoke test",
+    "correction": "use physical batch 1 for variable-length rows, preserve effective batch 65 with accumulation 65, and reduce learning rate from 8e-5 to 2e-5",
+    "smoke_gate": "check every microbatch loss and gradient; release full training only after a clean smoke test",
+    "full_guard": "check gradients before every optimizer step and adapter values after every optimizer step"
   },
   "milestones": [
     {"step": 1539, "effective_examples": 100035, "de_novo_examples": 46170, "editing_examples": 53865},

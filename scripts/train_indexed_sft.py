@@ -79,7 +79,7 @@ class IndexedChatDataset:
         handle.seek(int(self.indices[shard][local_index]))
         return json.loads(handle.readline())
 
-    def __getitem__(self, index: int) -> dict[str, list[int]]:
+    def __getitem__(self, index: int) -> dict[str, object]:
         row = self._row(index)
         messages = row.get("messages")
         if not isinstance(messages, list) or len(messages) != 3:
@@ -106,7 +106,36 @@ class IndexedChatDataset:
             "input_ids": full_ids,
             "attention_mask": [1] * len(full_ids),
             "labels": labels,
+            "row_index": index,
         }
+
+
+class IndexedCompletionCollator:
+    """Pad language-model inputs while retaining source rows for diagnostics."""
+
+    def __init__(self, tokenizer: object):
+        self.completion_collator = common.CompletionCollator(tokenizer)
+
+    def __call__(self, features: Sequence[dict[str, object]]):
+        import torch
+
+        batch = self.completion_collator(features)
+        batch["_row_indices"] = torch.tensor(
+            [int(item["row_index"]) for item in features], dtype=torch.long
+        )
+        return batch
+
+
+def nonfinite_gradient_count(model: object) -> int:
+    """Count non-finite trainable-gradient values without changing gradients."""
+
+    import torch
+
+    return sum(
+        int((~torch.isfinite(parameter.grad.detach().float())).sum().item())
+        for parameter in model.parameters()
+        if parameter.requires_grad and parameter.grad is not None
+    )
 
 
 class TaskBalancedSampler:
@@ -215,6 +244,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--expected-train-rows", type=int)
     parser.add_argument("--resume-from-checkpoint", action="store_true")
+    parser.add_argument(
+        "--guard-every-microbatch",
+        action="store_true",
+        help="Audit gradients after every microbatch (intended for smoke tests).",
+    )
     args = parser.parse_args(argv)
     if args.per_device_batch_size < 1:
         raise SystemExit("--per-device-batch-size must be positive")
@@ -335,11 +369,68 @@ def main(argv: Sequence[str] | None = None) -> int:
         **{key: value for key, value in values.items() if key in signature.parameters}
     )
     class BalancedTrainer(transformers.Trainer):
+        guarded_microbatches = 0
+        current_row_indices: list[int] = []
+        current_microbatch_loss = float("nan")
+
         def _get_train_sampler(self, train_dataset=None):
             selected = train_dataset if train_dataset is not None else self.train_dataset
             if args.sampler_mode == "balanced":
                 return TaskBalancedSampler(selected, args.seed, args.per_device_batch_size)
             return ProportionalOnePassSampler(selected, args.seed)
+
+        def compute_loss(
+            self, model, inputs, return_outputs=False, num_items_in_batch=None
+        ):
+            row_indices = inputs.pop("_row_indices")
+            self.current_row_indices = [int(value) for value in row_indices.tolist()]
+            outputs = model(**inputs)
+            loss = outputs.loss
+            if loss is None or not torch.isfinite(loss.detach()).all():
+                raise FloatingPointError(
+                    "non-finite microbatch loss at optimizer step "
+                    f"{self.state.global_step}; rows={self.current_row_indices}"
+                )
+            self.current_microbatch_loss = float(loss.detach().float().item())
+            return (loss, outputs) if return_outputs else loss
+
+        def training_step(self, model, inputs, num_items_in_batch=None):
+            loss = super().training_step(model, inputs, num_items_in_batch)
+            self.guarded_microbatches += 1
+            if (
+                args.guard_every_microbatch
+                or self.guarded_microbatches <= args.gradient_accumulation
+            ):
+                bad = nonfinite_gradient_count(model)
+                if bad:
+                    raise FloatingPointError(
+                        f"{bad} non-finite gradient values after microbatch "
+                        f"{self.guarded_microbatches}; rows={self.current_row_indices}; "
+                        f"loss={self.current_microbatch_loss:.8g}"
+                    )
+            return loss
+
+    class FiniteTrainingCallback(transformers.TrainerCallback):
+        """Stop before one bad gradient can poison the complete LoRA adapter."""
+
+        def on_pre_optimizer_step(self, training_args, state, control, model=None, **kwargs):
+            if model is not None:
+                bad = nonfinite_gradient_count(model)
+                if bad:
+                    raise FloatingPointError(
+                        f"{bad} non-finite gradient values before step "
+                        f"{state.global_step + 1}"
+                    )
+            return control
+
+        def on_step_end(self, training_args, state, control, model=None, **kwargs):
+            if model is not None:
+                bad = common.adapter_nonfinite_count(model)
+                if bad:
+                    raise FloatingPointError(
+                        f"{bad} non-finite adapter values after step {state.global_step}"
+                    )
+            return control
 
     milestone_root = args.output_dir / "milestones"
 
@@ -387,8 +478,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     trainer = BalancedTrainer(
         model=model, args=training_args, train_dataset=dataset,
-        data_collator=common.CompletionCollator(tokenizer),
-        callbacks=[MilestoneAdapterCallback()],
+        data_collator=IndexedCompletionCollator(tokenizer),
+        callbacks=[FiniteTrainingCallback(), MilestoneAdapterCallback()],
     )
     resume: bool | str = False
     if args.resume_from_checkpoint:
@@ -447,6 +538,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             and args.num_train_epochs == 1.0
         ),
         "learning_rate": args.learning_rate, "resume_checkpoint": resume,
+        "finite_guard_each_optimizer_step": True,
+        "guard_every_microbatch": args.guard_every_microbatch,
         "milestone_steps": milestone_steps,
         "milestone_root": str(milestone_root),
         "adapter_nonfinite_parameters": nonfinite,

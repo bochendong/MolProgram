@@ -10,6 +10,9 @@ def test_fresh_balanced_protocol_freezes_schedule_and_milestones():
     payload = json.loads((EXPERIMENT / "protocol.json").read_text())
     assert payload["initialization"]["input_adapter"] is None
     assert payload["training"]["effective_batch_size"] == 65
+    assert payload["training"]["physical_batch_size"] == 1
+    assert payload["training"]["gradient_accumulation"] == 65
+    assert payload["training"]["learning_rate"] == 2e-5
     assert payload["training"]["optimizer_steps"] == 16_283
     assert payload["training"]["effective_examples"] == 1_058_395
     assert [row["step"] for row in payload["milestones"]] == [
@@ -22,8 +25,10 @@ def test_fresh_balanced_runner_uses_new_lora_and_preserves_adapters():
     assert "--fresh-lora" in runner
     assert "--input-adapter" not in runner
     assert "--sampler-mode balanced" in runner
-    assert "--per-device-batch-size 5" in runner
-    assert "--gradient-accumulation 13" in runner
+    assert "--per-device-batch-size 1" in runner
+    assert "--gradient-accumulation 65" in runner
+    assert "--learning-rate 2e-5" in runner
+    assert "--guard-every-microbatch" in runner
     for step in (1539, 3077, 7693, 16283):
         assert f"--milestone-step {step}" in runner
 
@@ -34,6 +39,9 @@ def test_indexed_trainer_supports_fresh_lora_and_milestone_adapters():
     assert 'initialization.add_argument("--fresh-lora"' in trainer
     assert "peft.get_peft_model" in trainer
     assert "class MilestoneAdapterCallback" in trainer
+    assert "class FiniteTrainingCallback" in trainer
+    assert "non-finite microbatch loss" in trainer
+    assert "nonfinite_gradient_count" in trainer
     assert "control.should_save = True" in trainer
     assert '"optimizer_state_preserved": False' in trainer
 

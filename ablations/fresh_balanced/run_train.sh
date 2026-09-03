@@ -16,6 +16,7 @@ case "$RUN_MODE" in
     max_steps="${SMOKE_STEPS:-20}"
     save_steps=1000
     milestones=()
+    numerical_guards=(--guard-every-microbatch)
     ;;
   full)
     output="$OUTPUT_ROOT/full"
@@ -27,6 +28,7 @@ case "$RUN_MODE" in
       --milestone-step 7693
       --milestone-step 16283
     )
+    numerical_guards=()
     ;;
   *)
     echo "RUN_MODE must be smoke or full" >&2
@@ -47,13 +49,14 @@ compgen -G "$output/checkpoint-*" >/dev/null && resume+=(--resume-from-checkpoin
   --sampler-mode balanced \
   --expected-train-rows 2569919 \
   --max-steps "$max_steps" \
-  --per-device-batch-size 5 \
-  --gradient-accumulation 13 \
-  --learning-rate 8e-5 \
+  --per-device-batch-size 1 \
+  --gradient-accumulation 65 \
+  --learning-rate 2e-5 \
   --warmup-steps 100 \
   --save-steps "$save_steps" \
   --seed 36001 \
   "${milestones[@]}" \
+  "${numerical_guards[@]}" \
   "${resume[@]}"
 
 test -f "$output/TRAINING_COMPLETE"
