@@ -30,6 +30,9 @@ and per-bucket exposure are unchanged, and lowers the learning rate from
 `8e-5` to `2e-5`. The smoke gate checks every microbatch loss and gradient.
 Full training checks gradients before every optimizer update and adapter values
 after every update, so a bad update cannot silently poison later checkpoints.
+The corrected run writes to `outputs/fresh_balanced/stable_v2_seed_36001`; the
+old `seed_36001/smoke/checkpoint-20` is retained only as failure evidence and is
+never used for resume.
 
 Run a smoke test and then the full fresh training:
 

@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/outputs/fresh_balanced/seed_36001}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/outputs/fresh_balanced/stable_v2_seed_36001}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 case "$RUN_MODE" in

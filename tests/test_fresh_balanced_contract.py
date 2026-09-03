@@ -29,6 +29,7 @@ def test_fresh_balanced_runner_uses_new_lora_and_preserves_adapters():
     assert "--gradient-accumulation 65" in runner
     assert "--learning-rate 2e-5" in runner
     assert "--guard-every-microbatch" in runner
+    assert "stable_v2_seed_36001" in runner
     for step in (1539, 3077, 7693, 16283):
         assert f"--milestone-step {step}" in runner
 
@@ -52,3 +53,4 @@ def test_slurm_chain_orders_smoke_before_full_and_supports_deferred_start():
     assert 'afterok:$preflight' in submit
     assert 'afterok:$smoke' in submit
     assert "checkpoint-16283/adapter" in submit
+    assert "stable_v2_seed_36001" in submit

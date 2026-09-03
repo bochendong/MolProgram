@@ -8,7 +8,7 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 ACCOUNT="${FRESH_ACCOUNT:-def-hup-ab}"
 GPU="${FRESH_GRES:-gpu:nvidia_h100_80gb_hbm3_3g.40gb:1}"
-OUT="${FRESH_OUTPUT_ROOT:-$ROOT/outputs/fresh_balanced/seed_36001}"
+OUT="${FRESH_OUTPUT_ROOT:-$ROOT/outputs/fresh_balanced/stable_v2_seed_36001}"
 LOG_DIR="${FRESH_LOG_DIR:-$ROOT/logs/fresh_balanced}"
 mkdir -p "$OUT" "$LOG_DIR"
 
