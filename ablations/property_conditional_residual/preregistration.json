@@ -1,0 +1,33 @@
+{
+  "protocol": "property_conditional_residual_rank4_pilot_v1",
+  "question": "Can a small residual active only on edit-only properties recover private-task performance without changing shared-task outputs?",
+  "source": {
+    "shared_adapter": "completed matched dense rank-16 adapter",
+    "train_rows": "the edit-only half of the frozen task-covered editing subset",
+    "expected_edit_only_rows": 1920,
+    "shared_rank": 16,
+    "residual_rank": 4
+  },
+  "arms": {
+    "frozen_shared": "rank-20 expansion before residual training",
+    "conditional_residual": "same shared slices plus trained rank-4 residual, active only for SA/GSK3B/DRD2 requests",
+    "always_on_residual": "byte-identical trained adapter with the residual active for every request"
+  },
+  "evaluation": {
+    "candidate_budget": 1,
+    "property_reranking": false,
+    "target_access": false,
+    "de_novo_rows": 120,
+    "editing_rows": 500,
+    "seed": 33551
+  },
+  "gate": {
+    "primary": "Edit-only-5 strict Raw@1 delta conditional_residual minus frozen_shared at similarity >= 0.65",
+    "edit_only_gain_at_least": 0.02,
+    "all10_nonnegative": true,
+    "inactive_raw_outputs_identical": true,
+    "active_conditional_equals_always_on": true,
+    "editing_validity_floor_delta": -0.02
+  },
+  "reporting": "Single-seed mechanistic pilot; never a confirmatory claim by itself."
+}

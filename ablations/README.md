@@ -9,11 +9,13 @@ recipes remain outside this directory.
 
 | Study | Question | Status | Primary comparison |
 |---|---|---|---|
-| [Fresh balanced](fresh_balanced/) | How do exposure and task-aligned refresh affect a balanced adapter trained from the unadapted backbone? | Runnable | 100k, 200k, 500k, and full exposure; final before versus after refresh |
+| [Fresh balanced](fresh_balanced/) | How do exposure and task-aligned refresh affect a balanced adapter trained from the unadapted backbone? | Stable full run queued | 100k, 200k, 500k, and full exposure; final before versus after refresh |
 | [Joint versus specialists](joint_vs_specialists/) | Does sharing one policy provide positive transfer or parameter efficiency? | Runnable | One joint adapter versus two task-specific adapters |
-| [Negative refinement](negative_refinement/) | Do constructed negative completions improve the policy beyond matched positive-only training? | Protocol ready | Positive-only versus multi-negative contrastive refinement |
-| [Property-program routing](property_program_routing/) | Can prompt-addressed LoRA rank sharing retain Shared-5 transfer while reducing Edit-only-5 interference? | 10k pilot preregistered | Routed rank-16 versus the byte-identical fresh 10k joint baseline |
-| [Safe joint Raw@1 GRPO](safe_joint_raw1_grpo/) | Can paired shared-policy RL improve de novo Raw@1 without materially degrading editing? | Protocol and Slurm DAG ready | GRPO versus the fresh input policy and matched continued SFT |
+| [Negative refinement](negative_refinement/) | Do constructed negative completions improve the policy beyond matched positive-only training? | Completed; no joint gain | Positive-only versus semantic and syntax negatives |
+| [Property-program routing](property_program_routing/) | Can prompt-addressed LoRA rank sharing retain Shared-5 transfer while reducing Edit-only-5 interference? | Completed; not supported | Routed rank-16 versus the byte-identical fresh 10k joint baseline |
+| [Transfer-aware routing](transfer_aware_program_routing/) | Can measured gradient transfer compile a soft residual rank route without erasing shared capacity? | Completed; not supported | Signed spectral rank route versus matched dense LoRA |
+| [Property-conditional residual](property_conditional_residual/) | Can a frozen shared adapter gain edit-only capacity while preserving every inactive Raw@1 output? | Protocol ready | Frozen rank-16 shared adapter plus rank-4 edit-only residual and always-on control |
+| [Safe joint Raw@1 GRPO](safe_joint_raw1_grpo/) | Can paired shared-policy RL improve de novo Raw@1 without materially degrading editing? | Waiting for fresh balanced | GRPO versus the fresh input policy and matched continued SFT |
 
 ## Reporting rules
 
