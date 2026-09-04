@@ -231,6 +231,10 @@ def summarize_scale(scale: int, root: Path, edit_gate_override: Path | None):
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from rdkit import RDLogger
+
+    for channel in ("rdApp.error", "rdApp.warning", "rdApp.info", "rdApp.debug"):
+        RDLogger.DisableLog(channel)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--scale-root",
