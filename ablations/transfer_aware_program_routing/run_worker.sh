@@ -20,6 +20,10 @@ export PYTHONPATH="${DEP_OVERLAY:+$DEP_OVERLAY:}$REPO_ROOT/src${PYTHONPATH:+:$PY
 export HF_HOME="${HF_CACHE:-$WORK_DIR/hf-cache}"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+if [[ -n "${ASSAY_ORACLE_DIR:-}" ]]; then
+  export SUCC_GSK3B_ORACLE_PATH="${SUCC_GSK3B_ORACLE_PATH:-$ASSAY_ORACLE_DIR/gsk3b_legacy_sklearn_compatible.pkl}"
+  export SUCC_DRD2_ORACLE_PATH="${SUCC_DRD2_ORACLE_PATH:-$ASSAY_ORACLE_DIR/drd2_graph2graph_svc_py36.pkl}"
+fi
 
 require_model() {
   : "${MODEL:?MODEL must be exported for GPU stages}"

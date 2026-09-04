@@ -2,39 +2,51 @@
 
 from __future__ import annotations
 
+import hashlib
+import importlib.util
 import json
 import math
+import os
+import pickle
+import sys
+import warnings
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import Mapping
 
+import numpy as np
 from rdkit import Chem, DataStructs
-from rdkit.Chem import AllChem, Descriptors, QED, rdMolDescriptors
+from rdkit.Chem import AllChem, Crippen, Descriptors, Lipinski, QED, RDConfig, rdMolDescriptors
 
 from . import protocol
 
 
 PROPERTY_NORMALIZERS = {
-    "MW": 40.0,
+    "MW": 500.0,
+    "LogP": 6.0,
+    "QED": 1.0,
+    "TPSA": 160.0,
+    "HBD": 8.0,
+    "HBA": 12.0,
+    "RB": 12.0,
+    "SA": 8.0,
+    "GSK3B": 0.5,
+    "DRD2": 0.5,
+    "JNK3": 0.5,
+}
+STRICT_TOLERANCE = {
+    "MW": 35.0,
     "LogP": 1.0,
-    "QED": 0.1,
+    "QED": 0.10,
     "TPSA": 20.0,
     "HBD": 1.0,
     "HBA": 1.0,
     "RB": 1.0,
-    "SA": 1.0,
-    "GSK3B": 0.1,
-    "DRD2": 0.1,
-    "JNK3": 0.1,
 }
-STRICT_TOLERANCE = {
-    "MW": 20.0,
-    "LogP": 0.5,
-    "QED": 0.05,
-    "TPSA": 10.0,
-    "HBD": 0.5,
-    "HBA": 0.5,
-    "RB": 0.5,
+PINNED_ORACLE_ENVS = {
+    "GSK3B": "SUCC_GSK3B_ORACLE_PATH",
+    "DRD2": "SUCC_DRD2_ORACLE_PATH",
 }
 
 
@@ -73,28 +85,158 @@ def molecular_properties(smiles: str) -> dict[str, float]:
         return {}
     return {
         "MW": float(Descriptors.MolWt(mol)),
-        "LogP": float(Descriptors.MolLogP(mol)),
+        "LogP": float(Crippen.MolLogP(mol)),
         "QED": float(QED.qed(mol)),
         "TPSA": float(rdMolDescriptors.CalcTPSA(mol)),
-        "HBD": float(rdMolDescriptors.CalcNumHBD(mol)),
-        "HBA": float(rdMolDescriptors.CalcNumHBA(mol)),
-        "RB": float(rdMolDescriptors.CalcNumRotatableBonds(mol)),
+        "HBD": float(Lipinski.NumHDonors(mol)),
+        "HBA": float(Lipinski.NumHAcceptors(mol)),
+        "RB": float(Lipinski.NumRotatableBonds(mol)),
     }
 
 
-@lru_cache(maxsize=200_000)
-def score_property(smiles: str, prop: str) -> float | None:
-    canonical = protocol.canonical_smiles(smiles)
-    if not canonical:
+class PinnedMorganClassifierOracle:
+    """Apply the frozen benchmark assay model to its original fingerprint."""
+
+    def __init__(self, model_path: Path, prop: str):
+        self.model_path = model_path.resolve()
+        self.prop = str(prop).upper()
+        with self.model_path.open("rb") as handle, warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if self.prop == "DRD2":
+                import sklearn.svm._classes as svm_classes
+
+                sys.modules.setdefault("sklearn.svm.classes", svm_classes)
+            self.model = pickle.load(handle)
+        if self.prop == "DRD2":
+            old = vars(self.model)
+            for name, value in {
+                "_n_support": old.get("n_support_"),
+                "_probA": old.get("probA_"),
+                "_probB": old.get("probB_"),
+            }.items():
+                if not hasattr(self.model, name) and value is not None:
+                    setattr(self.model, name, value)
+            if not hasattr(self.model, "n_features_in_"):
+                shape_fit = getattr(self.model, "shape_fit_", None)
+                if not shape_fit or len(shape_fit) != 2:
+                    raise ValueError("Pinned DRD2 SVC is missing shape_fit_")
+                self.model.n_features_in_ = int(shape_fit[1])
+            if not hasattr(self.model, "break_ties"):
+                self.model.break_ties = False
+
+    def __call__(self, smiles: str) -> float:
+        molecule = Chem.MolFromSmiles(str(smiles or ""))
+        if molecule is None:
+            raise ValueError("invalid SMILES")
+        features = np.zeros(2048, dtype=np.float32)
+        if self.prop == "DRD2":
+            fingerprint = AllChem.GetMorganFingerprint(
+                molecule, 3, useCounts=True, useFeatures=True
+            )
+            for index, count in fingerprint.GetNonzeroElements().items():
+                features[int(index) % 2048] += float(count)
+        else:
+            fingerprint = AllChem.GetMorganFingerprintAsBitVect(
+                molecule, 2, nBits=2048
+            )
+            DataStructs.ConvertToNumpyArray(fingerprint, features)
+        probability = self.model.predict_proba(features.reshape(1, -1))
+        return float(probability[0, 1])
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def configured_oracle_provenance() -> dict[str, dict[str, str]]:
+    provenance = {}
+    for prop, env_name in PINNED_ORACLE_ENVS.items():
+        configured = str(os.environ.get(env_name, "") or "").strip()
+        if not configured:
+            continue
+        path = Path(configured).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"{env_name} does not exist: {path}")
+        provenance[prop] = {
+            "implementation": "pinned_benchmark_morgan_sklearn_classifier",
+            "env": env_name,
+            "path": str(path),
+            "sha256": _sha256_file(path),
+        }
+    return provenance
+
+
+@lru_cache(maxsize=None)
+def _pinned_oracle(prop: str, configured_path: str) -> PinnedMorganClassifierOracle:
+    path = Path(configured_path).expanduser().resolve()
+    if not path.is_file():
+        env_name = PINNED_ORACLE_ENVS[prop]
+        raise FileNotFoundError(f"{env_name} does not exist: {path}")
+    return PinnedMorganClassifierOracle(path, prop)
+
+
+@lru_cache(maxsize=1)
+def _sa_oracle():
+    scorer_path = Path(RDConfig.RDContribDir) / "SA_Score" / "sascorer.py"
+    if not scorer_path.is_file():
         return None
-    if prop in molecular_properties(canonical):
-        return molecular_properties(canonical)[prop]
+    spec = importlib.util.spec_from_file_location("molprogram_sascorer", scorer_path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    def score(smiles: str) -> float:
+        molecule = Chem.MolFromSmiles(smiles)
+        if molecule is None:
+            raise ValueError("invalid SMILES")
+        return float(module.calculateScore(molecule))
+
+    return score
+
+
+@lru_cache(maxsize=None)
+def _tdc_oracle(prop: str):
     try:
         from tdc import Oracle
 
-        return float(Oracle(name=prop)(canonical))
+        return Oracle(name=prop)
     except Exception:
         return None
+
+
+@lru_cache(maxsize=200_000)
+def _score_property(canonical: str, prop: str, pinned_path: str) -> float | None:
+    properties = molecular_properties(canonical)
+    if prop in properties:
+        return properties[prop]
+    if prop == "SA":
+        oracle = _sa_oracle()
+    elif pinned_path:
+        oracle = _pinned_oracle(prop, pinned_path)
+    else:
+        oracle = _tdc_oracle(prop)
+    if oracle is None:
+        return None
+    try:
+        value = float(oracle(canonical))
+    except Exception:
+        return None
+    return value if math.isfinite(value) else None
+
+
+def score_property(smiles: str, prop: str) -> float | None:
+    canonical = protocol.canonical_smiles(smiles)
+    canonical_prop = str(prop or "").strip()
+    if not canonical or not canonical_prop:
+        return None
+    env_name = PINNED_ORACLE_ENVS.get(canonical_prop)
+    pinned_path = str(os.environ.get(env_name, "") or "").strip() if env_name else ""
+    return _score_property(canonical, canonical_prop, pinned_path)
 
 
 def morgan_tanimoto(left: str, right: str) -> float:

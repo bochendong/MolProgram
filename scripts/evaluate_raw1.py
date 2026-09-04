@@ -17,7 +17,13 @@ if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 from molprogram import protocol  # noqa: E402
 from molprogram import program_routing  # noqa: E402
-from molprogram.scoring import property_count, score_response  # noqa: E402
+from molprogram.scoring import (  # noqa: E402
+    PINNED_ORACLE_ENVS,
+    configured_oracle_provenance,
+    prompt_payload,
+    property_count,
+    score_response,
+)
 
 
 def mean(values) -> float:
@@ -32,6 +38,23 @@ def present_mean(items, key: str) -> float | None:
 
 def read_jsonl(path: Path) -> list[dict[str, object]]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def require_pinned_assay_oracles(rows) -> None:
+    required = {
+        str(condition.get("property", ""))
+        for row in rows
+        for condition in prompt_payload(row).get("conditions", [])
+        if isinstance(condition, Mapping)
+        and str(condition.get("property", "")) in PINNED_ORACLE_ENVS
+    }
+    available = set(configured_oracle_provenance())
+    missing = sorted(required - available)
+    if missing:
+        raise SystemExit(
+            "Raw@1 evaluation requires pinned assay oracles: "
+            + ", ".join(missing)
+        )
 
 
 def generate_records(
@@ -112,6 +135,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     de_novo = read_jsonl(args.denovo_gate)
     editing = [row for row in read_jsonl(args.edit_gate) if row["task_mode"] == "edit"]
+    require_pinned_assay_oracles(editing)
     config = transformers.AutoConfig.from_pretrained(args.base_model, local_files_only=True)
     loader = (
         transformers.AutoModelForCausalLM
