@@ -161,6 +161,12 @@ def summarize_records(
             "edit": sum(len(items) for items in edit_groups.values()),
         },
         "aggregate": {
+            "denovo_strict_pooled": mean(
+                item["strict"] for items in de_groups.values() for item in items
+            ),
+            "denovo_valid_pooled": mean(
+                item["valid"] for items in de_groups.values() for item in items
+            ),
             "denovo_strict_macro": mean(v["strict_rate"] for v in de_buckets.values()),
             "denovo_valid_macro": mean(v["valid_rate"] for v in de_buckets.values()),
             "denovo_property_strict_macro": mean(

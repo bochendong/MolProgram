@@ -55,3 +55,36 @@ On Slurm, `submit_slurm.sh` creates a preflight, smoke, and fresh full-training
 dependency chain. Set `FRESH_BEGIN` when the cluster must defer the chain until
 after a maintenance window. The command prints the final adapter and completion
 marker paths needed by downstream evaluations and safe joint RL.
+
+## Frozen Raw@1 evaluation
+
+The headline gate lives in `benchmarks/fresh_balanced_raw1/`. It contains 440
+target-blind de novo requests (100 each at 2p--5p and 20 each at 6p--7p) and
+5,000 target-blind editing requests (500 for each registered All-10 task). Its
+manifest freezes both output hashes and the hashes of the four source prompt
+files; no assistant completion or target molecule is included.
+
+`evaluation_protocol.json` preregisters one shared sampling seed and decision
+rule for the 100k, 200k, 500k, and full adapters. The three milestones are an
+exposure curve only. Only the full adapter can replace the historical balanced
+checkpoint, and it must reach both 53.45% pooled de novo strict success and
+56.94% All-10 editing strict success (within 2 percentage points of the frozen
+historical references). The collector reports validity, property success, and
+editing source similarity for All-10, Shared-5, and Edit-only-5, together with
+gate, checkpoint, candidate, summary, and final-result hashes.
+
+Submit the automatic evaluation chain after the fresh training job is known:
+
+```bash
+FRESH_EVAL_MODEL=/path/to/base-model \
+FRESH_EVAL_TRAIN_ROOT=/path/to/stable_v2_seed_36001 \
+FRESH_EVAL_GATE_DIR="$PWD/benchmarks/fresh_balanced_raw1" \
+FRESH_EVAL_TRAIN_JOB=123456 \
+FRESH_EVAL_SAFE_GRPO_JOB=123457 \
+  bash ablations/fresh_balanced/submit_evaluation_slurm.sh
+```
+
+All four GPU evaluations depend on successful fresh training. The CPU collector
+then verifies exact request identity and all hashes before applying the frozen
+rule. If `FRESH_EVAL_SAFE_GRPO_JOB` is supplied, that held job is released only
+when the full checkpoint passes both thresholds and every integrity check.

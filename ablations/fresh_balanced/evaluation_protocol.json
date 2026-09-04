@@ -1,0 +1,37 @@
+{
+  "protocol": "fresh_balanced_headline_raw1_v1",
+  "status": "preregistered_before fresh full training starts",
+  "checkpoints": [
+    {"label": "100k", "step": 1539, "role": "descriptive exposure milestone"},
+    {"label": "200k", "step": 3077, "role": "descriptive exposure milestone"},
+    {"label": "500k", "step": 7693, "role": "descriptive exposure milestone"},
+    {"label": "full", "step": 16283, "role": "only headline-eligible checkpoint"}
+  ],
+  "evaluation": {
+    "de_novo_requests": 440,
+    "editing_requests": 5000,
+    "outputs_per_request": 1,
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "seed": 36051,
+    "property_reranking": false,
+    "target_access": false,
+    "editing_primary_similarity": 0.65,
+    "report_editing_groups": ["Shared-5", "Edit-only-5", "All-10"]
+  },
+  "historical_reference_percent": {
+    "de_novo_strict_pooled": 55.45,
+    "editing_all10_strict_065_macro": 58.94
+  },
+  "headline_rule": {
+    "close_tolerance_pp": 2.0,
+    "minimum_de_novo_strict_pooled": 53.45,
+    "minimum_editing_all10_strict_065_macro": 56.94,
+    "requires_full_checkpoint": true,
+    "intermediate_checkpoint_selection_forbidden": true
+  },
+  "downstream_release": {
+    "conditional_residual_requires_headline_eligible_full": true,
+    "safe_grpo_requires_headline_eligible_full": true
+  }
+}

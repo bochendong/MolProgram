@@ -45,6 +45,7 @@ src/molprogram/
   rewards.py               hard-boundary editing reward
 scripts/
   build_dataset.py         audited, leakage-checked dataset construction
+  freeze_fresh_eval_gates.py  freeze target-blind headline requests and hashes
   train_sft.py             standard LoRA supervised fine-tuning
   train_indexed_sft.py     memory-bounded full-corpus continuation
   audit_editing_reward_support.py  no-training RL support gate
@@ -162,6 +163,8 @@ ablation index and historical protocols.
 The fresh reconstruction of the balanced headline schedule, including the
 100k, 200k, 500k, and full-exposure adapters, is defined in
 [ablations/fresh_balanced/](ablations/fresh_balanced/).
+Its checked-in gate under `benchmarks/fresh_balanced_raw1/` is directly readable
+by the evaluator, so the fresh run does not depend on an older repository.
 
 The follow-up RL method gate is defined in
 [ablations/safe_joint_raw1_grpo/](ablations/safe_joint_raw1_grpo/). It starts

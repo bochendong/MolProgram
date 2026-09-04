@@ -55,3 +55,25 @@ def test_slurm_chain_orders_smoke_before_full_and_supports_deferred_start():
     assert "checkpoint-16283/adapter" in submit
     assert "stable_v2_seed_36001" in submit
     assert "--time=3-00:00:00" in submit
+
+
+def test_fresh_evaluation_is_frozen_and_full_only():
+    protocol = json.loads((EXPERIMENT / "evaluation_protocol.json").read_text())
+    assert protocol["evaluation"]["de_novo_requests"] == 440
+    assert protocol["evaluation"]["editing_requests"] == 5000
+    assert protocol["evaluation"]["outputs_per_request"] == 1
+    assert protocol["headline_rule"]["minimum_de_novo_strict_pooled"] == 53.45
+    assert (
+        protocol["headline_rule"]["minimum_editing_all10_strict_065_macro"]
+        == 56.94
+    )
+    assert protocol["headline_rule"]["intermediate_checkpoint_selection_forbidden"]
+    assert protocol["checkpoints"][-1]["role"] == "only headline-eligible checkpoint"
+
+    runner = (EXPERIMENT / "run_evaluation.sh").read_text()
+    assert "gate.denovo.jsonl" in runner
+    assert "gate.edit.jsonl" in runner
+    assert "SAFE_GRPO_RELEASED" in runner
+    submit = (EXPERIMENT / "submit_evaluation_slurm.sh").read_text()
+    assert 'afterok:$FRESH_EVAL_TRAIN_JOB' in submit
+    assert "FRESH_EVAL_SAFE_GRPO_JOB" in submit
