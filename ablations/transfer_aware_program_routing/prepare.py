@@ -164,7 +164,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise ValueError(f"training coverage is insufficient for gate nodes: {undercovered}")
 
     manifest = {
-        "protocol": "transfer_aware_program_routing_10k_pilot_v1",
+        "protocol": "transfer_aware_program_routing_3840_per_mode_pilot_v1",
         "seed": args.seed,
         "source": str(args.task_covered_train.resolve()),
         "source_sha256": sha256(args.task_covered_train),

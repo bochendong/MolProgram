@@ -11,7 +11,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 SEED="${SEED:-33401}"
 EXPECTED_PER_MODE="${EXPECTED_PER_MODE:-3840}"
 WARMUP_STEPS="${WARMUP_STEPS:-16}"
-PROTOCOL="transfer_aware_program_routing_10k_pilot_v1"
+PROTOCOL="transfer_aware_program_routing_3840_per_mode_pilot_v1"
 DATA="$WORK_DIR/data"
 
 module purge >/dev/null 2>&1 || true

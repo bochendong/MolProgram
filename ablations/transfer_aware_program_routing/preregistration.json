@@ -1,5 +1,5 @@
 {
-  "protocol": "transfer_aware_program_routing_10k_pilot_v1",
+  "protocol": "transfer_aware_program_routing_3840_per_mode_pilot_v1",
   "status": "preregistered_before_data_freeze_and_training",
   "question": "Can an evidence-compiled soft LoRA subspace retain cross-regime sharing while reducing edit-only interference?",
   "positioning": "DSN-inspired shared/private adaptation with SMoRA-related rank-wise activation, distinguished by symbolic molecular-program composition and gradient-evidence routing",

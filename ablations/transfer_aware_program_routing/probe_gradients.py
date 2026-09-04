@@ -169,7 +169,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     evidence.update(
         {
-            "protocol": "transfer_aware_program_routing_10k_pilot_v1",
+            "protocol": "transfer_aware_program_routing_3840_per_mode_pilot_v1",
             "signature": "per-layer per-rank derivative with respect to rank-component scaling",
             "samples_per_node": args.samples_per_node,
             "selected_ids": selected_ids,

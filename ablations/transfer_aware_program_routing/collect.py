@@ -63,7 +63,7 @@ def summarize(
         "parameter_parity": parameter_parity,
     }
     return {
-        "protocol": "transfer_aware_program_routing_10k_pilot_v1",
+        "protocol": "transfer_aware_program_routing_3840_per_mode_pilot_v1",
         "primary_endpoint": "Edit-only-5 strict Raw@1 at similarity >= 0.65",
         "arms": {"transfer_aware": candidate, "matched_dense": control},
         "deltas_transfer_aware_minus_dense": deltas,
