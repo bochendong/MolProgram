@@ -1,0 +1,51 @@
+{
+  "assistant_completions_present": false,
+  "de_novo": {
+    "arity_counts": {
+      "2": 100,
+      "3": 100,
+      "4": 100,
+      "5": 100,
+      "6": 20,
+      "7": 20
+    },
+    "rows": 440,
+    "sha256": "6ff316590b154b59048de8a0e2ee69ee52c9ff7f9bc6cd070733ccecd288c155"
+  },
+  "editing": {
+    "rows": 5000,
+    "sha256": "2514209214e72bb98835cc6c04432c0cff0f7906c1a543aafd5cbbff35b81272",
+    "task_counts": {
+      "DRD2:decrease+MW:decrease+SA:decrease": 500,
+      "GSK3B:increase": 500,
+      "HBA:decrease+LogP:increase": 500,
+      "HBA:decrease+MW:decrease": 500,
+      "HBA:decrease+SA:decrease": 500,
+      "HBA:increase+MW:increase+QED:decrease": 500,
+      "MW:increase": 500,
+      "QED:increase+SA:decrease": 500,
+      "RB:decrease": 500,
+      "SA:decrease": 500
+    }
+  },
+  "protocol": "fresh_balanced_headline_gates_v1",
+  "source_files": [
+    {
+      "label": "de_novo_part_1",
+      "sha256": "e480c88c8ade5720cdec6c964c033cecb550eb8081fc3a840ea65fbadc58fb08"
+    },
+    {
+      "label": "de_novo_part_2",
+      "sha256": "34242f9d37e0ced91ddabfa6a66542f1059b1d060deffe54eb63cbc6b6d24fb4"
+    },
+    {
+      "label": "de_novo_part_3",
+      "sha256": "ccb3a8eb99881de0741734d4f58733691e39f4c3a5014f91ee8b4de098655d0b"
+    },
+    {
+      "label": "editing_all10",
+      "sha256": "2514209214e72bb98835cc6c04432c0cff0f7906c1a543aafd5cbbff35b81272"
+    }
+  ],
+  "target_blind": true
+}
