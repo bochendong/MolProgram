@@ -1,0 +1,48 @@
+{
+  "protocol": "transfer_aware_program_routing_10k_pilot_v1",
+  "status": "preregistered_before_data_freeze_and_training",
+  "question": "Can an evidence-compiled soft LoRA subspace retain cross-regime sharing while reducing edit-only interference?",
+  "positioning": "DSN-inspired shared/private adaptation with SMoRA-related rank-wise activation, distinguished by symbolic molecular-program composition and gradient-evidence routing",
+  "data": {
+    "source": "the task-aligned MolProgram corpus with all ten editing benchmark tasks",
+    "de_novo": "640 examples for each 2p--7p arity (3840 total)",
+    "editing": "384 examples for each of the ten frozen tasks (3840 total)",
+    "gates": "byte-identical 120-request de novo and 500-request editing Raw@1 gates from the frozen scale comparison",
+    "coverage_gate": "every mode-property node present in evaluation must have at least 64 training examples"
+  },
+  "method": {
+    "adapter": "one standard rank-16 PEFT LoRA",
+    "shared_initialization": "both arms continue from the same 16-step dense warm-up adapter",
+    "gradient_signature": "per-layer per-rank derivative with respect to rank-component scaling, averaged over four examples per mode-property node",
+    "transfer_graph": "signed cosine similarity among normalized gradient signatures",
+    "compiler": "top four signed spectral factors mapped to four positive/negative residual-rank pairs",
+    "common_ranks": 8,
+    "residual_ranks": 8,
+    "inactive_floor": 0.25,
+    "program_composition": "elementwise maximum over the mode-property nodes named by the request",
+    "normalization": "each request mask has squared L2 norm 16",
+    "learned_router": false,
+    "extra_trainable_parameters": 0
+  },
+  "control": "byte-identical data, initialization, optimizer settings, and rank-16 parameter count with all ranks active",
+  "evaluation": {
+    "raw_at_1": true,
+    "property_reranking": false,
+    "primary": "Edit-only-5 strict success at source similarity 0.65",
+    "guardrails": [
+      "All-10 editing strict success",
+      "Shared-5 strict success",
+      "de novo 2p--7p strict macro",
+      "both-mode validity"
+    ]
+  },
+  "decision_rule": {
+    "edit_only_gain_over_dense_pp": 2.0,
+    "all10_gain_must_be_nonnegative": true,
+    "maximum_shared_regression_pp": 2.0,
+    "maximum_denovo_regression_pp": 2.0,
+    "maximum_validity_regression_pp": 2.0,
+    "parameter_count_must_match": true
+  },
+  "reporting": "pilot only; report every endpoint and do not promote a confirmatory claim"
+}

@@ -68,12 +68,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--routing-config", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--base-model", required=True)
+    parser.add_argument("--input-adapter-dir", type=Path, default=None)
     parser.add_argument("--epochs", type=float, default=1.0)
     parser.add_argument("--max-length", type=int, default=448)
     parser.add_argument("--gradient-accumulation", type=int, default=32)
     parser.add_argument("--learning-rate", type=float, default=8e-5)
     parser.add_argument("--seed", type=int, default=33101)
     parser.add_argument("--max-steps", type=int, default=-1)
+    parser.add_argument("--expected-per-mode", type=int, default=10000)
     parser.add_argument("--protocol", default="property_program_routed_lora_10k_v1")
     args = parser.parse_args(argv)
 
@@ -106,20 +108,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     model.config.use_cache = False
     model.gradient_checkpointing_enable()
     model.enable_input_require_grads()
-    model = peft.get_peft_model(
-        model,
-        peft.LoraConfig(
-            task_type=peft.TaskType.CAUSAL_LM,
-            r=rank,
-            lora_alpha=32,
-            lora_dropout=0.05,
-            bias="none",
-            target_modules=[
-                "q_proj", "k_proj", "v_proj", "o_proj",
-                "gate_proj", "up_proj", "down_proj",
-            ],
-        ),
-    )
+    if args.input_adapter_dir is None:
+        model = peft.get_peft_model(
+            model,
+            peft.LoraConfig(
+                task_type=peft.TaskType.CAUSAL_LM,
+                r=rank,
+                lora_alpha=32,
+                lora_dropout=0.05,
+                bias="none",
+                target_modules=[
+                    "q_proj", "k_proj", "v_proj", "o_proj",
+                    "gate_proj", "up_proj", "down_proj",
+                ],
+            ),
+        )
+    else:
+        if not args.input_adapter_dir.joinpath("adapter_model.safetensors").is_file():
+            raise FileNotFoundError(f"missing input adapter: {args.input_adapter_dir}")
+        model = peft.PeftModel.from_pretrained(
+            model, args.input_adapter_dir, is_trainable=True
+        )
     for parameter in model.parameters():
         if parameter.requires_grad:
             parameter.data = parameter.data.float()
@@ -127,8 +136,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     rows = common.read_jsonl(args.train_jsonl)
     mode_counts = Counter(program_routing.task_mode(row) for row in rows)
-    if mode_counts != {"de_novo": 10000, "edit": 10000}:
-        raise ValueError(f"expected the exact balanced 10k data, found {mode_counts}")
+    expected_counts = {
+        "de_novo": args.expected_per_mode,
+        "edit": args.expected_per_mode,
+    }
+    if mode_counts != expected_counts:
+        raise ValueError(
+            f"expected exact balanced counts {expected_counts}, found {mode_counts}"
+        )
     dataset = RoutedDataset(rows, tokenizer, args.max_length, layout)
     active_rank_histogram = Counter(
         sum(value != 0.0 for value in item["route_mask"])
@@ -173,11 +188,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary = {
         "protocol": args.protocol,
         "base_model": args.base_model,
-        "fresh_lora_from_base": True,
-        "input_adapter": None,
+        "fresh_lora_from_base": args.input_adapter_dir is None,
+        "input_adapter": (
+            str(args.input_adapter_dir.resolve()) if args.input_adapter_dir else None
+        ),
         "loader_kind": loader_kind,
         "train_rows": len(dataset),
         "train_rows_by_mode": dict(mode_counts),
+        "expected_rows_per_mode": args.expected_per_mode,
         "epochs": args.epochs,
         "max_steps": args.max_steps,
         "gradient_accumulation": args.gradient_accumulation,

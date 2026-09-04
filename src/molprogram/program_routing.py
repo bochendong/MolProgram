@@ -28,13 +28,41 @@ def validate_layout(layout: Mapping[str, object]) -> None:
     if not common:
         raise ValueError("at least one common rank is required")
     property_ranks = layout.get("property_ranks")
-    if not isinstance(property_ranks, Mapping) or not property_ranks:
-        raise ValueError("property_ranks must be a non-empty mapping")
-    for prop, ranks in property_ranks.items():
-        if not str(prop):
-            raise ValueError("property name cannot be empty")
-        if not _rank_list(ranks, rank, f"property_ranks.{prop}"):
-            raise ValueError(f"property {prop} has no routed ranks")
+    node_rank_weights = layout.get("node_rank_weights")
+    if property_ranks is None and node_rank_weights is None:
+        raise ValueError("layout requires property_ranks or node_rank_weights")
+    if property_ranks is not None:
+        if not isinstance(property_ranks, Mapping) or not property_ranks:
+            raise ValueError("property_ranks must be a non-empty mapping")
+        for prop, ranks in property_ranks.items():
+            if not str(prop):
+                raise ValueError("property name cannot be empty")
+            if not _rank_list(ranks, rank, f"property_ranks.{prop}"):
+                raise ValueError(f"property {prop} has no routed ranks")
+    if node_rank_weights is not None:
+        if not isinstance(node_rank_weights, Mapping) or not node_rank_weights:
+            raise ValueError("node_rank_weights must be a non-empty mapping")
+        for node, weights in node_rank_weights.items():
+            if not str(node) or ":" not in str(node):
+                raise ValueError(f"invalid mode-property routing node: {node}")
+            if not isinstance(weights, Mapping) or not weights:
+                raise ValueError(f"node_rank_weights.{node} must be a non-empty mapping")
+            for index, value in weights.items():
+                rank_index = int(index)
+                weight = float(value)
+                if rank_index < 0 or rank_index >= rank:
+                    raise ValueError(
+                        f"node_rank_weights.{node} contains rank {rank_index} outside [0, {rank})"
+                    )
+                if not math.isfinite(weight) or weight < 0.0 or weight > 1.0:
+                    raise ValueError(
+                        f"node_rank_weights.{node}.{rank_index} must be in [0, 1]"
+                    )
+        inactive_floor = float(layout.get("inactive_floor", 0.0))
+        if not math.isfinite(inactive_floor) or not 0.0 <= inactive_floor <= 1.0:
+            raise ValueError("inactive_floor must be in [0, 1]")
+        if str(layout.get("combination", "max")) != "max":
+            raise ValueError("transfer-aware routing currently supports combination=max")
     mode_ranks = layout.get("mode_ranks", {})
     if not isinstance(mode_ranks, Mapping):
         raise ValueError("mode_ranks must be a mapping")
@@ -94,23 +122,47 @@ def route_values(row: Mapping[str, object], layout: Mapping[str, object]) -> lis
     """Return one normalized rank mask for a request."""
     validate_layout(layout)
     rank = int(layout["rank"])
-    active = set(int(item) for item in layout["common_ranks"])
-    property_ranks = layout["property_ranks"]
-    assert isinstance(property_ranks, Mapping)
-    for prop in properties(row):
-        if prop not in property_ranks:
-            raise ValueError(f"property {prop} is absent from the routing layout")
-        active.update(int(item) for item in property_ranks[prop])
+    common = set(int(item) for item in layout["common_ranks"])
+    weights = [0.0] * rank
+    for index in common:
+        weights[index] = 1.0
+    property_ranks = layout.get("property_ranks")
+    node_rank_weights = layout.get("node_rank_weights")
     mode = task_mode(row)
-    mode_ranks = layout.get("mode_ranks", {})
-    assert isinstance(mode_ranks, Mapping)
-    active.update(int(item) for item in mode_ranks.get(mode, []))
-    if not active:
+    if node_rank_weights is not None:
+        assert isinstance(node_rank_weights, Mapping)
+        floor = float(layout.get("inactive_floor", 0.0))
+        for index in range(rank):
+            if index not in common:
+                weights[index] = floor
+        for prop in properties(row):
+            node = f"{mode}:{prop}"
+            if node not in node_rank_weights:
+                raise ValueError(f"routing node {node} is absent from the routing layout")
+            routed = node_rank_weights[node]
+            assert isinstance(routed, Mapping)
+            for index, value in routed.items():
+                rank_index = int(index)
+                weights[rank_index] = max(weights[rank_index], float(value))
+    else:
+        assert isinstance(property_ranks, Mapping)
+        active = set(common)
+        for prop in properties(row):
+            if prop not in property_ranks:
+                raise ValueError(f"property {prop} is absent from the routing layout")
+            active.update(int(item) for item in property_ranks[prop])
+        mode_ranks = layout.get("mode_ranks", {})
+        assert isinstance(mode_ranks, Mapping)
+        active.update(int(item) for item in mode_ranks.get(mode, []))
+        for index in active:
+            weights[index] = 1.0
+    squared_norm = sum(value * value for value in weights)
+    if squared_norm <= 0.0:
         raise ValueError("routing produced an empty rank set")
-    value = 1.0
     if str(layout.get("normalization", "binary")) == "rms_active":
-        value = math.sqrt(rank / len(active))
-    return [value if index in active else 0.0 for index in range(rank)]
+        scale = math.sqrt(rank / squared_norm)
+        weights = [value * scale for value in weights]
+    return weights
 
 
 def route_matrix(rows: Sequence[Mapping[str, object]], layout: Mapping[str, object]):
