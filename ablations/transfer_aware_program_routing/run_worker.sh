@@ -111,7 +111,7 @@ case "$STAGE" in
   collect)
     "$PYTHON_BIN" "$SCRIPT_DIR/collect.py" \
       --routed-summary "$WORK_DIR/eval_routed/summary.json" \
-      --dense-summary "$WORK_DIR/eval_dense/summary.json" \
+      --dense-summary "${DENSE_SUMMARY:-$WORK_DIR/eval_dense/summary.json}" \
       --routed-train "$WORK_DIR/routed/training_summary.json" \
       --dense-train "$WORK_DIR/dense/training_summary.json" \
       --transfer-graph "$WORK_DIR/probe/transfer_graph.json" \

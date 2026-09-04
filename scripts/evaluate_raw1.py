@@ -105,6 +105,89 @@ def generate_records(
     return records
 
 
+def summarize_records(
+    records: Sequence[Mapping[str, object]],
+    *,
+    arm: str,
+    protocol_name: str,
+    seed: int,
+    routing_config: Path | None = None,
+) -> dict[str, object]:
+    de_groups: dict[int, list[Mapping[str, object]]] = defaultdict(list)
+    edit_groups: dict[str, list[Mapping[str, object]]] = defaultdict(list)
+    for record in records:
+        if record["task_mode"] == "de_novo":
+            de_groups[int(record["property_count"])].append(record)
+        else:
+            edit_groups[str(record["task_key"])].append(record)
+    de_buckets = {
+        f"{count}p": {
+            "rows": len(de_groups[count]),
+            "strict_rate": mean(item["strict"] for item in de_groups[count]),
+            "valid_rate": mean(item["valid"] for item in de_groups[count]),
+            "property_strict_rate": mean(
+                item["property_strict"] for item in de_groups[count]
+            ),
+            "mean_property_fraction": present_mean(
+                de_groups[count], "property_fraction"
+            ),
+            "mean_satisfaction": present_mean(de_groups[count], "mean_satisfaction"),
+        }
+        for count in range(2, 8)
+    }
+    edit_buckets = {}
+    for task in sorted(protocol.TABLE1_TASK_KEYS.values()):
+        items = edit_groups[task]
+        if not items:
+            raise ValueError(f"missing editing gate task {task}")
+        edit_buckets[task] = {
+            "rows": len(items),
+            "strict_rate": mean(item["strict"] for item in items),
+            "relaxed_rate": mean(item["relaxed"] for item in items),
+            "valid_rate": mean(item["valid"] for item in items),
+            "property_strict_rate": mean(item["property_strict"] for item in items),
+            "copy_rate": mean(item["copy"] for item in items),
+            "mean_property_fraction": present_mean(items, "property_fraction"),
+            "mean_source_similarity": present_mean(items, "source_similarity"),
+        }
+    return {
+        "protocol": protocol_name,
+        "arm": arm,
+        "sampling": {"temperature": 0.8, "top_p": 0.95, "seed": seed},
+        "property_reranking": False,
+        "program_routing": str(routing_config.resolve()) if routing_config else None,
+        "rows": {
+            "de_novo": sum(len(items) for items in de_groups.values()),
+            "edit": sum(len(items) for items in edit_groups.values()),
+        },
+        "aggregate": {
+            "denovo_strict_macro": mean(v["strict_rate"] for v in de_buckets.values()),
+            "denovo_valid_macro": mean(v["valid_rate"] for v in de_buckets.values()),
+            "denovo_property_strict_macro": mean(
+                v["property_strict_rate"] for v in de_buckets.values()
+            ),
+            "denovo_property_fraction_macro": mean(
+                v["mean_property_fraction"] for v in de_buckets.values()
+            ),
+            "edit_strict_065_macro": mean(v["strict_rate"] for v in edit_buckets.values()),
+            "edit_relaxed_015_macro": mean(v["relaxed_rate"] for v in edit_buckets.values()),
+            "edit_valid_macro": mean(v["valid_rate"] for v in edit_buckets.values()),
+            "edit_property_strict_macro": mean(
+                v["property_strict_rate"] for v in edit_buckets.values()
+            ),
+            "edit_copy_macro": mean(v["copy_rate"] for v in edit_buckets.values()),
+            "edit_property_fraction_macro": mean(
+                v["mean_property_fraction"] for v in edit_buckets.values()
+            ),
+            "edit_source_similarity_macro": present_mean(
+                list(edit_buckets.values()), "mean_source_similarity"
+            ),
+        },
+        "denovo_buckets": de_buckets,
+        "edit_buckets": edit_buckets,
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--denovo-gate", required=True, type=Path)
@@ -173,78 +256,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
 
-    de_groups: dict[int, list[dict[str, object]]] = defaultdict(list)
-    edit_groups: dict[str, list[dict[str, object]]] = defaultdict(list)
-    for record in records:
-        if record["task_mode"] == "de_novo":
-            de_groups[int(record["property_count"])].append(record)
-        else:
-            edit_groups[str(record["task_key"])].append(record)
-    de_buckets = {
-        f"{count}p": {
-            "rows": len(de_groups[count]),
-            "strict_rate": mean(item["strict"] for item in de_groups[count]),
-            "valid_rate": mean(item["valid"] for item in de_groups[count]),
-            "property_strict_rate": mean(
-                item["property_strict"] for item in de_groups[count]
-            ),
-            "mean_property_fraction": present_mean(
-                de_groups[count], "property_fraction"
-            ),
-            "mean_satisfaction": present_mean(de_groups[count], "mean_satisfaction"),
-        }
-        for count in range(2, 8)
-    }
-    edit_buckets = {}
-    for task in sorted(protocol.TABLE1_TASK_KEYS.values()):
-        items = edit_groups[task]
-        if not items:
-            raise ValueError(f"missing editing gate task {task}")
-        edit_buckets[task] = {
-            "rows": len(items),
-            "strict_rate": mean(item["strict"] for item in items),
-            "relaxed_rate": mean(item["relaxed"] for item in items),
-            "valid_rate": mean(item["valid"] for item in items),
-            "property_strict_rate": mean(item["property_strict"] for item in items),
-            "copy_rate": mean(item["copy"] for item in items),
-            "mean_property_fraction": present_mean(items, "property_fraction"),
-            "mean_source_similarity": present_mean(items, "source_similarity"),
-        }
-    summary = {
-        "protocol": args.protocol,
-        "arm": args.arm,
-        "sampling": {"temperature": 0.8, "top_p": 0.95, "seed": args.seed},
-        "property_reranking": False,
-        "program_routing": (
-            str(args.routing_config.resolve()) if args.routing_config else None
-        ),
-        "rows": {"de_novo": len(de_novo), "edit": len(editing)},
-        "aggregate": {
-            "denovo_strict_macro": mean(v["strict_rate"] for v in de_buckets.values()),
-            "denovo_valid_macro": mean(v["valid_rate"] for v in de_buckets.values()),
-            "denovo_property_strict_macro": mean(
-                v["property_strict_rate"] for v in de_buckets.values()
-            ),
-            "denovo_property_fraction_macro": mean(
-                v["mean_property_fraction"] for v in de_buckets.values()
-            ),
-            "edit_strict_065_macro": mean(v["strict_rate"] for v in edit_buckets.values()),
-            "edit_relaxed_015_macro": mean(v["relaxed_rate"] for v in edit_buckets.values()),
-            "edit_valid_macro": mean(v["valid_rate"] for v in edit_buckets.values()),
-            "edit_property_strict_macro": mean(
-                v["property_strict_rate"] for v in edit_buckets.values()
-            ),
-            "edit_copy_macro": mean(v["copy_rate"] for v in edit_buckets.values()),
-            "edit_property_fraction_macro": mean(
-                v["mean_property_fraction"] for v in edit_buckets.values()
-            ),
-            "edit_source_similarity_macro": present_mean(
-                list(edit_buckets.values()), "mean_source_similarity"
-            ),
-        },
-        "denovo_buckets": de_buckets,
-        "edit_buckets": edit_buckets,
-    }
+    summary = summarize_records(
+        records,
+        arm=args.arm,
+        protocol_name=args.protocol,
+        seed=args.seed,
+        routing_config=args.routing_config,
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "candidates.jsonl").write_text(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in records)
