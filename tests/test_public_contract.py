@@ -105,6 +105,17 @@ def test_edit_copy_is_exposed_to_reward():
     assert details["source_similarity"] == pytest.approx(1.0)
 
 
+def test_directional_edit_requires_a_strict_change():
+    row = request(
+        "CCO",
+        [{"property": "MW", "goal": "increase"}],
+        "edit",
+    )
+    _, details = score_response(row, protocol.response("CCO", "edit"))
+    assert details["property_strict"] is False
+    assert details["strict"] is False
+
+
 def test_hard_boundary_blocks_ineligible_edits():
     details = {
         "valid": True,

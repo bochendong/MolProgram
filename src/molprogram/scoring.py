@@ -249,9 +249,9 @@ def morgan_tanimoto(left: str, right: str) -> float:
     return float(DataStructs.TanimotoSimilarity(left_fp, right_fp))
 
 
-def _condition_margin(
+def _condition_result(
     condition: Mapping[str, object], candidate: str, source: str
-) -> float | None:
+) -> tuple[float, bool] | None:
     prop = str(condition.get("property", ""))
     if prop not in protocol.PROPERTIES:
         return None
@@ -261,18 +261,22 @@ def _condition_margin(
     goal = condition.get("goal")
     if isinstance(goal, Mapping) and "around" in goal:
         tolerance = STRICT_TOLERANCE.get(prop, PROPERTY_NORMALIZERS.get(prop, 1.0))
-        return 1.0 - abs(value - float(goal["around"])) / max(tolerance, 1e-8)
+        margin = 1.0 - abs(value - float(goal["around"])) / max(tolerance, 1e-8)
+        return margin, margin >= 0.0
     if isinstance(goal, str) and source and source != "<EMPTY>":
         source_value = score_property(source, prop)
         if source_value is None:
             return None
         scale = max(PROPERTY_NORMALIZERS.get(prop, 1.0), 1e-8)
         if goal == "increase":
-            return (value - source_value) / scale
+            margin = (value - source_value) / scale
+            return margin, margin > 0.0
         if goal == "decrease":
-            return (source_value - value) / scale
+            margin = (source_value - value) / scale
+            return margin, margin > 0.0
         if goal == "preserve":
-            return 1.0 - abs(value - source_value) / scale
+            margin = 1.0 - abs(value - source_value) / scale
+            return margin, margin >= 0.0
     return None
 
 
@@ -281,15 +285,16 @@ def score_properties(payload: Mapping[str, object], candidate: str) -> PropertyS
     if not isinstance(conditions, list) or not conditions:
         return PropertyScore(0.0, 0.0, 0.0, False, 0, 0)
     source = str(payload.get("source", "") or "")
-    margins = [
-        margin
+    results = [
+        result
         for condition in conditions
         if isinstance(condition, Mapping)
-        for margin in [_condition_margin(condition, candidate, source)]
-        if margin is not None
+        for result in [_condition_result(condition, candidate, source)]
+        if result is not None
     ]
+    margins = [result[0] for result in results]
     property_total = len(conditions)
-    successes = sum(margin >= 0.0 for margin in margins)
+    successes = sum(result[1] for result in results)
     satisfaction = [0.5 * (math.tanh(margin / 0.25) + 1.0) for margin in margins]
     if margins:
         minimum = min(margins)
