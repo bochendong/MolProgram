@@ -20,6 +20,7 @@ def load_module(name: str, path: Path):
 
 prepare = load_module("transfer_aware_prepare", ABLATION / "prepare.py")
 collect = load_module("transfer_aware_collect", ABLATION / "collect.py")
+probe = load_module("transfer_aware_probe", ABLATION / "probe_gradients.py")
 
 
 def conditions(task: str):
@@ -119,3 +120,33 @@ def test_collector_requires_private_gain_and_guardrails():
     assert result["deltas_transfer_aware_minus_dense"][
         "edit_only5_strict_065_macro"
     ] == pytest.approx(0.04)
+
+
+def test_probe_keeps_disconnected_lora_coordinates_as_zero():
+    torch = pytest.importorskip("torch")
+
+    class Layer:
+        def __init__(self):
+            self.lora_A = {"default": torch.nn.Linear(3, 2, bias=False)}
+            self.lora_B = {"default": torch.nn.Linear(2, 4, bias=False)}
+
+    active = Layer()
+    inactive = Layer()
+    with torch.no_grad():
+        active.lora_B["default"].weight.fill_(2.0)
+    active.lora_B["default"].weight.grad = torch.ones_like(
+        active.lora_B["default"].weight
+    )
+
+    class Model:
+        def named_modules(self):
+            return [("active", active), ("inactive", inactive)]
+
+    labels, values = probe.rank_scaling_signature(Model())
+    assert labels == [
+        "active:default:r0",
+        "active:default:r1",
+        "inactive:default:r0",
+        "inactive:default:r1",
+    ]
+    assert values == pytest.approx([8.0, 8.0, 0.0, 0.0])

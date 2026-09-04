@@ -57,13 +57,25 @@ def rank_scaling_signature(model: object) -> tuple[list[str], list[float]]:
             projection_b = lora_b[adapter_name]
             a_weight = projection_a.weight
             b_weight = projection_b.weight
-            if a_weight.grad is None or b_weight.grad is None:
-                raise ValueError(f"missing gradient for {module_name}:{adapter_name}")
             if a_weight.shape[0] != b_weight.shape[1]:
                 raise ValueError(f"rank mismatch for {module_name}:{adapter_name}")
-            score = (a_weight.grad * a_weight).sum(dim=1) + (
-                b_weight.grad * b_weight
-            ).sum(dim=0)
+            # Some adapters (notably Qwen-VL's visual tower for text-only
+            # program examples) are deliberately disconnected from the loss.
+            # Their derivative with respect to rank-component scaling is zero,
+            # not an error.  Preserve the coordinates so every task signature
+            # has the same labels; normalize_signatures still rejects a task
+            # whose complete signature is zero.
+            a_term = (
+                (a_weight.grad * a_weight).sum(dim=1)
+                if a_weight.grad is not None
+                else torch.zeros(a_weight.shape[0], device=a_weight.device)
+            )
+            b_term = (
+                (b_weight.grad * b_weight).sum(dim=0)
+                if b_weight.grad is not None
+                else torch.zeros(b_weight.shape[1], device=b_weight.device)
+            )
+            score = a_term + b_term
             for rank_index, value in enumerate(score.detach().float().cpu().tolist()):
                 labels.append(f"{module_name}:{adapter_name}:r{rank_index}")
                 values.append(float(value))
